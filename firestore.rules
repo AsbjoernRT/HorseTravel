@@ -1,0 +1,186 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user owns the resource
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      // Users can read their own profile, write only their own
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+
+    // Vehicles collection
+    match /vehicles/{vehicleId} {
+      // Private vehicles: only owner can access
+      // Organization vehicles: all members can read, members with permission can write
+      allow read: if isAuthenticated() && (
+        // Private vehicle owned by user
+        (resource.data.ownerType == 'private' && resource.data.ownerId == request.auth.uid) ||
+        // Organization vehicle and user is a member
+        (resource.data.ownerType == 'organization' &&
+         exists(/databases/$(database)/documents/organizations/$(resource.data.organizationId)/members/$(request.auth.uid)))
+      );
+
+      allow create: if isAuthenticated() && (
+        // Creating private vehicle
+        (request.resource.data.ownerType == 'private' && request.resource.data.ownerId == request.auth.uid) ||
+        // Creating organization vehicle with permission
+        (request.resource.data.ownerType == 'organization' &&
+         get(/databases/$(database)/documents/organizations/$(request.resource.data.organizationId)/members/$(request.auth.uid)).data.permissions.canManageVehicles == true)
+      );
+
+      allow update, delete: if isAuthenticated() && (
+        // Updating own private vehicle
+        (resource.data.ownerType == 'private' && resource.data.ownerId == request.auth.uid) ||
+        // Updating organization vehicle with permission
+        (resource.data.ownerType == 'organization' &&
+         get(/databases/$(database)/documents/organizations/$(resource.data.organizationId)/members/$(request.auth.uid)).data.permissions.canManageVehicles == true)
+      );
+    }
+
+    // Horses collection
+    match /horses/{horseId} {
+      // Private horses: only owner can access
+      // Organization horses: all members can read, members with permission can write
+      allow read: if isAuthenticated() && (
+        // Private horse owned by user
+        (resource.data.ownerType == 'private' && resource.data.ownerId == request.auth.uid) ||
+        // Organization horse and user is a member
+        (resource.data.ownerType == 'organization' &&
+         exists(/databases/$(database)/documents/organizations/$(resource.data.organizationId)/members/$(request.auth.uid)))
+      );
+
+      allow create: if isAuthenticated() && (
+        // Creating private horse
+        (request.resource.data.ownerType == 'private' && request.resource.data.ownerId == request.auth.uid) ||
+        // Creating organization horse with permission
+        (request.resource.data.ownerType == 'organization' &&
+         get(/databases/$(database)/documents/organizations/$(request.resource.data.organizationId)/members/$(request.auth.uid)).data.permissions.canManageHorses == true)
+      );
+
+      allow update, delete: if isAuthenticated() && (
+        // Updating own private horse
+        (resource.data.ownerType == 'private' && resource.data.ownerId == request.auth.uid) ||
+        // Updating organization horse with permission
+        (resource.data.ownerType == 'organization' &&
+         get(/databases/$(database)/documents/organizations/$(resource.data.organizationId)/members/$(request.auth.uid)).data.permissions.canManageHorses == true)
+      );
+    }
+
+    // Transports collection
+    match /transports/{transportId} {
+      // Private transports: only owner can access
+      // Organization transports: all members can read, members with permission can write
+      allow read: if isAuthenticated() && (
+        // Private transport owned by user
+        (resource.data.ownerType == 'private' && resource.data.ownerId == request.auth.uid) ||
+        // Organization transport and user is a member
+        (resource.data.ownerType == 'organization' &&
+         exists(/databases/$(database)/documents/organizations/$(resource.data.organizationId)/members/$(request.auth.uid)))
+      );
+
+      allow create: if isAuthenticated() && (
+        // Creating private transport
+        (request.resource.data.ownerType == 'private' && request.resource.data.ownerId == request.auth.uid) ||
+        // Creating organization transport with permission
+        (request.resource.data.ownerType == 'organization' &&
+         get(/databases/$(database)/documents/organizations/$(request.resource.data.organizationId)/members/$(request.auth.uid)).data.permissions.canManageTours == true)
+      );
+
+      allow update, delete: if isAuthenticated() && (
+        // Updating own private transport
+        (resource.data.ownerType == 'private' && resource.data.ownerId == request.auth.uid) ||
+        // Updating organization transport with permission
+        (resource.data.ownerType == 'organization' &&
+         get(/databases/$(database)/documents/organizations/$(resource.data.organizationId)/members/$(request.auth.uid)).data.permissions.canManageTours == true)
+      );
+    }
+
+    // Documents collection
+    match /documents/{documentId} {
+      // Users can read documents for their transports
+      // Need to verify ownership through transport
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Alerts collection
+    match /alerts/{alertId} {
+      // Users can read alerts for their transports
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated();
+    }
+
+    // Organizations collection
+    match /organizations/{organizationId} {
+      // Anyone authenticated can create an organization
+      allow create: if isAuthenticated() &&
+                      request.resource.data.ownerId == request.auth.uid;
+
+      // Members and owner can read organization data
+      allow read: if isAuthenticated() && (
+        resource.data.ownerId == request.auth.uid ||
+        exists(/databases/$(database)/documents/organizations/$(organizationId)/members/$(request.auth.uid))
+      );
+
+      // Only owner can update/delete organization
+      allow update: if isAuthenticated() &&
+                      resource.data.ownerId == request.auth.uid;
+      allow delete: if isAuthenticated() &&
+                      resource.data.ownerId == request.auth.uid;
+
+      // Organization members subcollection
+      match /members/{memberId} {
+        // Members can read all members in their organization
+        allow read: if isAuthenticated() && (
+          get(/databases/$(database)/documents/organizations/$(organizationId)).data.ownerId == request.auth.uid ||
+          exists(/databases/$(database)/documents/organizations/$(organizationId)/members/$(request.auth.uid))
+        );
+
+        // Owner can always create members, others need permission or self-join
+        allow create: if isAuthenticated() && (
+          get(/databases/$(database)/documents/organizations/$(organizationId)).data.ownerId == request.auth.uid ||
+          request.auth.uid == memberId
+        );
+
+        // Owner and admins can update members
+        allow update: if isAuthenticated() && (
+          get(/databases/$(database)/documents/organizations/$(organizationId)).data.ownerId == request.auth.uid ||
+          get(/databases/$(database)/documents/organizations/$(organizationId)/members/$(request.auth.uid)).data.permissions.canManageMembers == true
+        );
+
+        // Owner and admins can delete members
+        allow delete: if isAuthenticated() && (
+          get(/databases/$(database)/documents/organizations/$(organizationId)).data.ownerId == request.auth.uid ||
+          get(/databases/$(database)/documents/organizations/$(organizationId)/members/$(request.auth.uid)).data.permissions.canManageMembers == true
+        );
+      }
+    }
+
+    // Invitations collection
+    match /invitations/{invitationId} {
+      // Anyone can read invitations sent to their email
+      allow read: if isAuthenticated() &&
+                    resource.data.invitedEmail == request.auth.token.email;
+
+      // Members with permission can create invitations
+      allow create: if isAuthenticated();
+
+      // Users can update invitations sent to them (accept/decline)
+      allow update: if isAuthenticated() &&
+                      resource.data.invitedEmail == request.auth.token.email;
+    }
+  }
+}
