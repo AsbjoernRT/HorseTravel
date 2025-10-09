@@ -4,6 +4,7 @@ import { MapPin } from 'lucide-react-native';
 import { colors } from '../styles/sharedStyles';
 import { loadGoogleMapsAPI } from '../utils/googleMapsLoader';
 
+// Address input that leverages Google Places autocomplete across web and native platforms.
 const LocationAutocomplete = ({
   value,
   onChangeText,

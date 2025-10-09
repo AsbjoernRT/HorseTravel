@@ -3,6 +3,7 @@ import { View, Text, Modal, TextInput, FlatList, TouchableOpacity, Pressable } f
 import { X, Search, Heart, Check } from 'lucide-react-native';
 import { colors } from '../styles/sharedStyles';
 
+// Multi-select modal for choosing horses with capacity warnings and quick filtering.
 const HorseSelectionModal = ({ visible, horses, selectedHorses, onToggleHorse, onClose, onManageHorses, vehicleCapacity }) => {
   const [searchQuery, setSearchQuery] = useState('');
 

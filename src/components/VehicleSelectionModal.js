@@ -3,6 +3,7 @@ import { View, Text, Modal, TextInput, FlatList, TouchableOpacity, Pressable } f
 import { X, Search, Truck } from 'lucide-react-native';
 import { colors } from '../styles/sharedStyles';
 
+// Modal picker that surfaces the vehicle list with search, filtering, and management shortcuts.
 const VehicleSelectionModal = ({ visible, vehicles, selectedVehicle, onSelect, onClose, onManageVehicles }) => {
   const [searchQuery, setSearchQuery] = useState('');
 

@@ -5,6 +5,7 @@ import { useTransport } from '../context/TransportContext';
 import { colors } from '../styles/sharedStyles';
 import { useNavigation } from '@react-navigation/native';
 
+// Banner that nudges users toward the in-progress transport details from anywhere in the app.
 const ActiveTransportHeader = () => {
   const { activeTransport } = useTransport();
   const navigation = useNavigation();

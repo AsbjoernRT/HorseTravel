@@ -4,6 +4,7 @@ import { X } from 'lucide-react-native';
 import { colors } from '../styles/sharedStyles';
 import { loadGoogleMapsAPI } from '../utils/googleMapsLoader';
 
+// On-demand modal that previews the planned Google Maps route and highlights border crossings.
 const RouteMapModal = ({ visible, onClose, routeInfo, fromLocation, toLocation }) => {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
