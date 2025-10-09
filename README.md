@@ -11,6 +11,45 @@ HorseTravel er en alt-i-én platform der hjælper med at håndtere:
 - **Dokumenthåndtering**: Digitale transportdokumenter, sundhedsattester og arkivering
 - **Live tracking**: Realtidsovervågning af transporter og statusopdateringer
 
+## Team og ansvarsområder (Godkendelsesopgave 2)
+
+### Clara Lykke Bastiansen
+- **Screens**: `OrganizationSetupScreen.js`, `OrganizationDetailsScreen.js`, `ProfileSetupScreen.js`
+- **Komponenter**: `ModeSwitcher.js` (rolle- og organisationsskift i UI)
+- **Context & services**: `OrganizationContext.js`, `organizationService.js`, `migrationService.js`
+- **Navigation**: Konfigurering af organisationsflowet i `App.js`
+
+### Mathias Hyllberg
+- **Screens**: `LoginScreen.js`, `SignupScreen.js`, `ForgotPasswordScreen.js`, `PhoneLoginScreen.js`
+- **Context & services**: `AuthContext.js`, `authService.js`
+- **Styles**: Auth- og formularstyling i `loginStyles.js` samt inputmønstre i `sharedStyles.js`
+- **Onboarding**: Opsætning af `ProfileSetupScreen.js` valideringer (samarbejde med Clara på context-siden)
+
+### Asbjørn Thomsen
+- **Screens**: `StartTransportScreen.js` (kort, ruteplanlægning og lokation), støtte i `TransportListScreen.js` for map-relateret status
+- **Komponenter**: `RouteMapModal.js`, `LocationAutocomplete.js`, `ActiveTransportHeader.js`
+- **Services & utils**: `mapsService.js`, `googleMapsLoader.js`, lokationshåndtering i `platformAlerts.js`
+- **Live tracking**: GPS-integration og ruteopslag, herunder knapper til ruteopdatering i transportflowet
+
+### Martin Myrthue Pilkær
+- **Screens**: `HomeScreen.js`, `TransportListScreen.js` (liste- og statuslogik), `HorseManagementScreen.js`, `VehicleManagementScreen.js`
+- **Komponenter**: `HorseCard.js`, `VehicleCard.js`, `HorseSelectionModal.js`, `VehicleSelectionModal.js`
+- **Context & services**: `TransportContext.js`, `transportService.js`, `horseService.js`, `vehicleService.js`
+- **Firebase & data**: `src/config/firebase.js`, `firebase.json`, `firestore.rules`, `firestore.indexes.json` samt AsyncStorage-koblinger
+- **Styles**: Delte layout- og farvevariabler i `globalStyles.js` og opdateringer i `sharedStyles.js`
+
+Alle commits/PRs tagges med initialer for at sikre transparens omkring kodebidrag.
+
+## Godkendelsesopgave 2 – Krav & Status
+
+Denne iteration fokuserer på innovation, stakeholderinddragelse og en udvidelse af appens funktionalitet:
+
+- Minimum to nye skærme (Stakeholder Feedback, Dokumentcenter) samt mindst fem skærme i alt.
+- Nye interaktioner via ekstra knapper (kortfiltre, feedbackindsendelse) og udvidet navigation (stack + tabs).
+- Udnytter mobilfunktioner: Map API (GPS), lokationsopslag og lagring af transportdata via Firestore/AsyncStorage.
+- Iteration baseret på feedback fra første godkendelsesopgave samt nye interviews med relevante stakeholdergrupper.
+- Leverancer følger feedback fra første iteration med fokus på kortfunktioner, dokumentflow og stakeholder-feedbackskærme.
+
 ## Teknisk stack
 
 ### Frontend

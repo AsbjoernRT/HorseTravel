@@ -2,8 +2,8 @@ import { doc, getDoc, updateDoc, getDocs, collection, query, where } from 'fireb
 import { db } from '../config/firebase';
 
 /**
- * Migrate existing user to include organization fields
- * This should be called when a user logs in and their profile is missing fields
+ * Normalizes legacy user documents so the organization features can rely on consistent fields.
+ * This should be called when a user logs in and their profile is missing fields.
  */
 export const migrateUserProfile = async (userId) => {
   try {

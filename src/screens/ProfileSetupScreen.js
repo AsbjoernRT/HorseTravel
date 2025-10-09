@@ -4,11 +4,13 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { auth, db } from '../config/firebase';
 
+// Collects core profile data for new users right after authentication.
 const ProfileSetupScreen = () => {
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Persists profile data to both Firebase Auth and the corresponding Firestore profile.
   const handleCompleteSetup = async () => {
     if (!displayName) {
       Alert.alert('Fejl', 'Indtast venligst dit navn');

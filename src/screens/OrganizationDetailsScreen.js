@@ -6,6 +6,7 @@ import { useOrganization } from '../context/OrganizationContext';
 import { sharedStyles, colors } from '../styles/sharedStyles';
 import * as Clipboard from 'expo-clipboard';
 
+// Shows organization metadata, invite code, and member roster for the selected org.
 const OrganizationDetailsScreen = ({ route, navigation }) => {
   const { organizationId } = route.params;
   const { activeOrganization } = useOrganization();
@@ -17,6 +18,7 @@ const OrganizationDetailsScreen = ({ route, navigation }) => {
     loadOrganizationData();
   }, [organizationId]);
 
+  // Pulls the latest organization record and member list from Firestore.
   const loadOrganizationData = async () => {
     try {
       setLoading(true);
@@ -34,11 +36,13 @@ const OrganizationDetailsScreen = ({ route, navigation }) => {
     }
   };
 
+  // Makes sharing the invite code a one-tap experience.
   const copyCode = async () => {
     await Clipboard.setStringAsync(organization.organizationCode);
     Alert.alert('Kopieret!', 'Organisations koden er kopieret til udklipsholderen');
   };
 
+  // System share sheet so admins can distribute the join code through any channel.
   const shareCode = async () => {
     try {
       await Share.share({
@@ -50,6 +54,7 @@ const OrganizationDetailsScreen = ({ route, navigation }) => {
     }
   };
 
+  // Maps role into the corresponding UI icon for quick scanning.
   const getRoleIcon = (role) => {
     switch (role) {
       case 'owner':

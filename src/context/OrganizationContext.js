@@ -19,7 +19,7 @@ export const OrganizationProvider = ({ children }) => {
   const [activeOrganization, setActiveOrganization] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Load user's organizations
+  // Load user's organizations list and restore the last active mode from the profile.
   useEffect(() => {
     const loadOrganizations = async () => {
       if (!user) {
@@ -56,7 +56,7 @@ export const OrganizationProvider = ({ children }) => {
     loadOrganizations();
   }, [user, userProfile]);
 
-  // Switch between private and organization mode
+  // Switch between private context and a specific organization (updates Firestore first).
   const switchMode = async (mode, organizationId = null) => {
     try {
       await switchUserMode(mode, organizationId);
@@ -76,7 +76,7 @@ export const OrganizationProvider = ({ children }) => {
     }
   };
 
-  // Get current context (mode + organizationId)
+  // Provides helpers with the current permission/organization scope.
   const getCurrentContext = () => {
     return {
       mode: activeMode,
@@ -84,7 +84,7 @@ export const OrganizationProvider = ({ children }) => {
     };
   };
 
-  // Check if user has permission
+  // Checks if the active member role grants a specific capability.
   const hasPermission = (permission) => {
     if (activeMode === 'private') {
       return true; // User has all permissions for their own data
@@ -108,7 +108,7 @@ export const OrganizationProvider = ({ children }) => {
     return memberInfo.permissions?.[permission] || false;
   };
 
-  // Reload organizations
+  // Refreshes the organization roster, used after create/join flows.
   const reloadOrganizations = async () => {
     try {
       const orgs = await getUserOrganizations();
