@@ -1,5 +1,7 @@
 # Firestore Database Schema
 
+> Overview of core collections, field semantics, and security rules used by the HorseTravel app.
+
 ## Collections Overview
 
 ### users

@@ -5,6 +5,7 @@ import { signIn, signInWithGoogle } from '../services/authService';
 import { sharedStyles } from '../styles/sharedStyles';
 import { loginStyles } from '../styles/loginStyles';
 
+// Primary email/password entry point with optional Google sign-in fallback.
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

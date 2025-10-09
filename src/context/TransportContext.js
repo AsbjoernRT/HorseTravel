@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState } from 'react';
 
+// Lightweight state container that mirrors the currently active transport flow on the device.
+
 const TransportContext = createContext();
 
 export const useTransport = () => {

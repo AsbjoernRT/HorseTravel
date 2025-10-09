@@ -5,6 +5,7 @@ import { useOrganization } from '../context/OrganizationContext';
 import { getTransports, deleteTransport } from '../services/transportService';
 import { sharedStyles, colors } from '../styles/sharedStyles';
 
+// Lists historic and planned transports with filtering and management actions.
 const TransportListScreen = ({ navigation }) => {
   const { activeMode, activeOrganization, hasPermission } = useOrganization();
   const [transports, setTransports] = useState([]);
