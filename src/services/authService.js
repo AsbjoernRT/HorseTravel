@@ -8,8 +8,6 @@ import {
   sendEmailVerification,
   GoogleAuthProvider,
   signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
   RecaptchaVerifier,
   signInWithPhoneNumber
 } from 'firebase/auth';
@@ -137,15 +135,8 @@ export const signInWithGoogle = async () => {
       prompt: 'select_account'
     });
 
-    // Use popup for web, redirect for mobile
-    let result;
-    if (Platform.OS === 'web') {
-      result = await signInWithPopup(auth, provider);
-    } else {
-      await signInWithRedirect(auth, provider);
-      result = await getRedirectResult(auth);
-    }
-
+    // Use popup for authentication (works in Expo Go web)
+    const result = await signInWithPopup(auth, provider);
     const user = result.user;
 
     // Check if user profile exists, if not create it
