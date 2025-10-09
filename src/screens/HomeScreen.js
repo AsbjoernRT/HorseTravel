@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 
 // Dashboard entry point that surfaces transport status and quick actions for the signed-in user.
 import { View, Text, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator } from 'react-native';
-import { Truck } from 'lucide-react-native';
+import { Truck, LogOut } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
 import { globalStyles } from '../styles/globalStyles';
 import { useTransport } from '../context/TransportContext';
 import { useAuth } from '../context/AuthContext';
 import { useOrganization } from '../context/OrganizationContext';
 import { getTransportsByStatus, updateTransport } from '../services/transportService';
+import { logOut } from '../services/authService';
 import ModeSwitcher from '../components/ModeSwitcher';
 
 const HomeScreen = ({ navigation }) => {
@@ -16,6 +17,37 @@ const HomeScreen = ({ navigation }) => {
   const { user, userProfile } = useAuth();
   const { activeMode, activeOrganization } = useOrganization();
   const [cleaningUp, setCleaningUp] = useState(false);
+
+  const handleLogout = async () => {
+    Alert.alert(
+      'Log ud',
+      'Er du sikker på, at du vil logge ud?',
+      [
+        { text: 'Annuller', style: 'cancel' },
+        {
+          text: 'Log ud',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await logOut();
+              Toast.show({
+                type: 'success',
+                text1: 'Logged ud',
+                text2: 'Du er nu logget ud.',
+              });
+            } catch (error) {
+              console.error('Error logging out:', error);
+              Toast.show({
+                type: 'error',
+                text1: 'Fejl',
+                text2: 'Kunne ikke logge ud.',
+              });
+            }
+          }
+        }
+      ]
+    );
+  };
 
   const cleanupDuplicateActiveTransports = async () => {
     Alert.alert(
@@ -91,9 +123,28 @@ const HomeScreen = ({ navigation }) => {
         />
       </View>
 
-      {/* Mode Switcher */}
+      {/* Mode Switcher and Logout */}
       <View style={{ alignItems: 'center', marginBottom: 20 }}>
-        <ModeSwitcher />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <ModeSwitcher />
+          <TouchableOpacity
+            style={{
+              backgroundColor: '#d6d1ca',
+              padding: 8,
+              borderRadius: 20,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              paddingHorizontal: 12,
+            }}
+            onPress={handleLogout}
+          >
+            <LogOut size={16} color="#002300" strokeWidth={2.5} />
+            <Text style={{ color: '#002300', fontSize: 14, fontWeight: '600' }}>
+              Log ud
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Welcome message */}

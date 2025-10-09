@@ -31,8 +31,7 @@ const SignupScreen = ({ navigation }) => {
       await signUp(email, password, displayName);
       Alert.alert(
         'Succes',
-        'Din konto er oprettet! Tjek din email for at verificere din konto.',
-        [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
+        'Din konto er oprettet! Tjek din email for at verificere din konto.'
       );
     } catch (error) {
       Alert.alert('Oprettelse fejlede', error.message);
@@ -60,6 +59,7 @@ const SignupScreen = ({ navigation }) => {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         {/* Logo Section */}
         <View style={styles.logoContainer}>
@@ -110,6 +110,9 @@ const SignupScreen = ({ navigation }) => {
               onChangeText={setPassword}
               secureTextEntry
               editable={!loading}
+              autoComplete="off"
+              textContentType="none"
+              passwordRules=""
             />
           </View>
 
@@ -123,6 +126,9 @@ const SignupScreen = ({ navigation }) => {
               onChangeText={setConfirmPassword}
               secureTextEntry
               editable={!loading}
+              autoComplete="off"
+              textContentType="none"
+              passwordRules=""
             />
           </View>
 
@@ -139,26 +145,31 @@ const SignupScreen = ({ navigation }) => {
             )}
           </TouchableOpacity>
 
-          {/* Divider */}
-          <View style={styles.dividerContainer}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>eller fortsæt med</Text>
-            <View style={styles.dividerLine} />
-          </View>
+          {/* Google Sign-In Button - Hidden on mobile */}
+          {Platform.OS === 'web' && (
+            <>
+              {/* Divider */}
+              <View style={styles.dividerContainer}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>eller fortsæt med</Text>
+                <View style={styles.dividerLine} />
+              </View>
 
-          {/* Google Sign-In Button */}
-          <TouchableOpacity
-            style={styles.socialButton}
-            onPress={handleGoogleSignIn}
-            disabled={loading}
-          >
-            <Image
-              source={require('../assets/icons/google-icon.webp')}
-              style={styles.socialButtonIcon}
-              resizeMode="contain"
-            />
-            <Text style={styles.socialButtonText}>Fortsæt med Google</Text>
-          </TouchableOpacity>
+              {/* Google Sign-In Button */}
+              <TouchableOpacity
+                style={styles.socialButton}
+                onPress={handleGoogleSignIn}
+                disabled={loading}
+              >
+                <Image
+                  source={require('../assets/icons/google-icon.webp')}
+                  style={styles.socialButtonIcon}
+                  resizeMode="contain"
+                />
+                <Text style={styles.socialButtonText}>Fortsæt med Google</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
 
         {/* Footer */}
@@ -183,7 +194,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
     padding: 24,
   },
   logoContainer: {
