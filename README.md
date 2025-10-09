@@ -38,7 +38,6 @@ HorseTravel er en alt-i-én platform der hjælper med at håndtere:
 - **Firebase & data**: `src/config/firebase.js`, `firebase.json`, `firestore.rules`, `firestore.indexes.json` samt AsyncStorage-koblinger
 - **Styles**: Delte layout- og farvevariabler i `globalStyles.js` og opdateringer i `sharedStyles.js`
 
-Alle commits/PRs tagges med initialer for at sikre transparens omkring kodebidrag.
 
 ## Godkendelsesopgave 2 – Krav & Status
 
