@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 
 // Guided workflow for planning or logging a transport, including vehicle, horse, and route selection.
-import { View, Text, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator, Pressable, Platform } from 'react-native';
+import { View, Text, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator, Pressable, Platform, Modal } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { ChevronRight, MapPin, Clock, Navigation, AlertTriangle, Calendar } from 'lucide-react-native';
+import { ChevronRight, MapPin, Clock, Navigation, AlertTriangle } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
 import { useOrganization } from '../context/OrganizationContext';
 import { useTransport } from '../context/TransportContext';
@@ -11,6 +11,7 @@ import { getVehicles } from '../services/vehicleService';
 import { getHorses } from '../services/horseService';
 import { createTransport, getTransportsByStatus } from '../services/transportService';
 import { sharedStyles, colors } from '../styles/sharedStyles';
+import { SCREEN_NAMES, navigateToTab } from '../constants/navigation';
 import { useFocusEffect } from '@react-navigation/native';
 import VehicleSelectionModal from '../components/VehicleSelectionModal';
 import HorseSelectionModal from '../components/HorseSelectionModal';
@@ -53,6 +54,21 @@ const StartTransportScreen = ({ navigation }) => {
   const [routeExpanded, setRouteExpanded] = useState(true);
 
   const canCreate = activeMode === 'private' || hasPermission('canManageTours');
+
+
+  const handleDateChange = (event, date) => {
+    if (event.type === 'set' && date) {
+      setSelectedDate(date);
+      setDepartureDate(date.toISOString().split('T')[0]);
+    }
+  };
+
+  const handleTimeChange = (event, time) => {
+    if (event.type === 'set' && time) {
+      setSelectedTime(time);
+      setDepartureTime(time.toTimeString().split(' ')[0].substring(0, 5));
+    }
+  };
 
   useEffect(() => {
     loadData();
@@ -521,25 +537,33 @@ const StartTransportScreen = ({ navigation }) => {
             <Text style={{ fontSize: 14, fontWeight: '600', color: colors.primary, marginBottom: 8 }}>
               Dato (valgfri)
             </Text>
-            <TouchableOpacity
-              style={{
-                backgroundColor: colors.white,
-                padding: 14,
-                borderRadius: 8,
-                fontSize: 16,
-                borderWidth: 1,
-                borderColor: '#ccc',
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 8,
-              }}
-              onPress={() => setShowDatePicker(true)}
-            >
-              <Calendar size={18} color={colors.primary} />
-              <Text style={{ fontSize: 16, color: selectedDate ? colors.primary : '#999' }}>
-                {selectedDate ? selectedDate.toLocaleDateString('da-DK') : 'Vælg dato'}
-              </Text>
-            </TouchableOpacity>
+            <View style={{
+              backgroundColor: colors.white,
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: '#ccc',
+              paddingHorizontal: 14,
+              paddingVertical: 4,
+              minHeight: 50,
+              justifyContent: 'center',
+            }}>
+              <DateTimePicker
+                value={selectedDate || new Date()}
+                mode="date"
+                display="default"
+                onChange={(event, date) => {
+                  if (event.type === 'set' && date) {
+                    setSelectedDate(date);
+                    setDepartureDate(date.toISOString().split('T')[0]);
+                  }
+                }}
+                style={{
+                  backgroundColor: 'transparent',
+                  width: '100%',
+                }}
+                textColor={colors.primary}
+              />
+            </View>
             {selectedDate && Platform.OS === 'web' && (
               <TouchableOpacity
                 style={{ marginTop: 4 }}
@@ -556,25 +580,33 @@ const StartTransportScreen = ({ navigation }) => {
             <Text style={{ fontSize: 14, fontWeight: '600', color: colors.primary, marginBottom: 8 }}>
               Tidspunkt (valgfri)
             </Text>
-            <TouchableOpacity
-              style={{
-                backgroundColor: colors.white,
-                padding: 14,
-                borderRadius: 8,
-                fontSize: 16,
-                borderWidth: 1,
-                borderColor: '#ccc',
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 8,
-              }}
-              onPress={() => setShowTimePicker(true)}
-            >
-              <Clock size={18} color={colors.primary} />
-              <Text style={{ fontSize: 16, color: selectedTime ? colors.primary : '#999' }}>
-                {selectedTime ? selectedTime.toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit' }) : 'Vælg tidspunkt'}
-              </Text>
-            </TouchableOpacity>
+            <View style={{
+              backgroundColor: colors.white,
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: '#ccc',
+              paddingHorizontal: 14,
+              paddingVertical: 4,
+              minHeight: 50,
+              justifyContent: 'center',
+            }}>
+              <DateTimePicker
+                value={selectedTime || new Date()}
+                mode="time"
+                display="default"
+                onChange={(event, time) => {
+                  if (event.type === 'set' && time) {
+                    setSelectedTime(time);
+                    setDepartureTime(time.toTimeString().split(' ')[0].substring(0, 5));
+                  }
+                }}
+                style={{
+                  backgroundColor: 'transparent',
+                  width: '100%',
+                }}
+                textColor={colors.primary}
+              />
+            </View>
             {selectedTime && Platform.OS === 'web' && (
               <TouchableOpacity
                 style={{ marginTop: 4 }}
@@ -589,150 +621,149 @@ const StartTransportScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Date Picker Modal - Native only */}
-        {Platform.OS !== 'web' && showDatePicker && (
-          <DateTimePicker
-            value={selectedDate || new Date()}
-            mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={(event, date) => {
-              setShowDatePicker(Platform.OS === 'ios');
-              if (date) {
-                setSelectedDate(date);
-                setDepartureDate(date.toISOString().split('T')[0]);
-              }
-            }}
-          />
-        )}
-
-        {/* Time Picker Modal - Native only */}
-        {Platform.OS !== 'web' && showTimePicker && (
-          <DateTimePicker
-            value={selectedTime || new Date()}
-            mode="time"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={(event, time) => {
-              setShowTimePicker(Platform.OS === 'ios');
-              if (time) {
-                setSelectedTime(time);
-                setDepartureTime(time.toTimeString().split(' ')[0].substring(0, 5));
-              }
-            }}
-          />
-        )}
 
         {/* Web Date Picker */}
-        {Platform.OS === 'web' && showDatePicker && (
-          <View style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 10000,
-          }}>
+        {Platform.OS === 'web' && (
+          <Modal
+            visible={showDatePicker}
+            animationType="fade"
+            transparent={true}
+            onRequestClose={cancelDateSelection}
+          >
             <View style={{
-              backgroundColor: 'white',
-              padding: 20,
-              borderRadius: 12,
-              minWidth: 300,
+              flex: 1,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              justifyContent: 'center',
+              alignItems: 'center',
             }}>
-              <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.primary, marginBottom: 16 }}>
-                Vælg Dato
-              </Text>
-              <input
-                type="date"
-                value={departureDate || ''}
-                onChange={(e) => {
-                  const date = new Date(e.target.value + 'T00:00:00');
-                  setSelectedDate(date);
-                  setDepartureDate(e.target.value);
-                }}
-                style={{
-                  width: '100%',
-                  padding: 12,
-                  fontSize: 16,
-                  borderRadius: 8,
-                  border: '1px solid #ccc',
-                  marginBottom: 16,
-                }}
-              />
-              <View style={{ flexDirection: 'row', gap: 12 }}>
-                <TouchableOpacity
-                  style={{
-                    flex: 1,
-                    padding: 12,
-                    backgroundColor: colors.secondary,
-                    borderRadius: 8,
-                    alignItems: 'center',
+              <View style={{
+                backgroundColor: '#f5f5f5',
+                padding: 20,
+                borderRadius: 12,
+                minWidth: 300,
+              }}>
+                <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.primary, marginBottom: 16 }}>
+                  Vælg Dato
+                </Text>
+                <input
+                  type="date"
+                  value={tempDate ? tempDate.toISOString().split('T')[0] : ''}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      const date = new Date(e.target.value + 'T00:00:00');
+                      setTempDate(date);
+                    }
                   }}
-                  onPress={() => setShowDatePicker(false)}
-                >
-                  <Text style={{ color: colors.primary, fontWeight: 'bold' }}>Luk</Text>
-                </TouchableOpacity>
+                  style={{
+                    width: '100%',
+                    padding: 12,
+                    fontSize: 16,
+                    borderRadius: 8,
+                    border: '1px solid #ccc',
+                    marginBottom: 16,
+                  }}
+                />
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      padding: 12,
+                      backgroundColor: '#e0e0e0',
+                      borderRadius: 8,
+                      alignItems: 'center',
+                    }}
+                    onPress={cancelDateSelection}
+                  >
+                    <Text style={{ color: colors.primary, fontWeight: 'bold' }}>Annuller</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      padding: 12,
+                      backgroundColor: colors.primary,
+                      borderRadius: 8,
+                      alignItems: 'center',
+                    }}
+                    onPress={saveDateSelection}
+                  >
+                    <Text style={{ color: colors.white, fontWeight: 'bold' }}>Gem</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
-          </View>
+          </Modal>
         )}
 
         {/* Web Time Picker */}
-        {Platform.OS === 'web' && showTimePicker && (
-          <View style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 10000,
-          }}>
+        {Platform.OS === 'web' && (
+          <Modal
+            visible={showTimePicker}
+            animationType="fade"
+            transparent={true}
+            onRequestClose={cancelTimeSelection}
+          >
             <View style={{
-              backgroundColor: 'white',
-              padding: 20,
-              borderRadius: 12,
-              minWidth: 300,
+              flex: 1,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              justifyContent: 'center',
+              alignItems: 'center',
             }}>
-              <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.primary, marginBottom: 16 }}>
-                Vælg Tidspunkt
-              </Text>
-              <input
-                type="time"
-                value={departureTime || ''}
-                onChange={(e) => {
-                  const time = new Date(`2000-01-01T${e.target.value}`);
-                  setSelectedTime(time);
-                  setDepartureTime(e.target.value);
-                }}
-                style={{
-                  width: '100%',
-                  padding: 12,
-                  fontSize: 16,
-                  borderRadius: 8,
-                  border: '1px solid #ccc',
-                  marginBottom: 16,
-                }}
-              />
-              <View style={{ flexDirection: 'row', gap: 12 }}>
-                <TouchableOpacity
-                  style={{
-                    flex: 1,
-                    padding: 12,
-                    backgroundColor: colors.secondary,
-                    borderRadius: 8,
-                    alignItems: 'center',
+              <View style={{
+                backgroundColor: '#f5f5f5',
+                padding: 20,
+                borderRadius: 12,
+                minWidth: 300,
+              }}>
+                <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.primary, marginBottom: 16 }}>
+                  Vælg Tidspunkt
+                </Text>
+                <input
+                  type="time"
+                  value={tempTime ? tempTime.toTimeString().split(' ')[0].substring(0, 5) : ''}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      const time = new Date(`2000-01-01T${e.target.value}`);
+                      setTempTime(time);
+                    }
                   }}
-                  onPress={() => setShowTimePicker(false)}
-                >
-                  <Text style={{ color: colors.primary, fontWeight: 'bold' }}>Luk</Text>
-                </TouchableOpacity>
+                  style={{
+                    width: '100%',
+                    padding: 12,
+                    fontSize: 16,
+                    borderRadius: 8,
+                    border: '1px solid #ccc',
+                    marginBottom: 16,
+                  }}
+                />
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      padding: 12,
+                      backgroundColor: '#e0e0e0',
+                      borderRadius: 8,
+                      alignItems: 'center',
+                    }}
+                    onPress={cancelTimeSelection}
+                  >
+                    <Text style={{ color: colors.primary, fontWeight: 'bold' }}>Annuller</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      padding: 12,
+                      backgroundColor: colors.primary,
+                      borderRadius: 8,
+                      alignItems: 'center',
+                    }}
+                    onPress={saveTimeSelection}
+                  >
+                    <Text style={{ color: colors.white, fontWeight: 'bold' }}>Gem</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
-          </View>
+          </Modal>
         )}
 
         {/* Vehicle Selection */}
@@ -857,7 +888,10 @@ const StartTransportScreen = ({ navigation }) => {
         selectedVehicle={selectedVehicle}
         onSelect={setSelectedVehicle}
         onClose={() => setShowVehicleModal(false)}
-        onManageVehicles={() => navigation.navigate('VehicleManagement')}
+        onManageVehicles={() => {
+          setShowVehicleModal(false);
+          navigateToTab(navigation, SCREEN_NAMES.VEHICLE_MANAGEMENT);
+        }}
       />
 
       {/* Horse Selection Modal */}
@@ -867,7 +901,10 @@ const StartTransportScreen = ({ navigation }) => {
         selectedHorses={selectedHorses}
         onToggleHorse={toggleHorseSelection}
         onClose={() => setShowHorseModal(false)}
-        onManageHorses={() => navigation.navigate('HorseManagement')}
+        onManageHorses={() => {
+          setShowHorseModal(false);
+          navigateToTab(navigation, SCREEN_NAMES.HORSE_MANAGEMENT);
+        }}
         vehicleCapacity={selectedVehicle?.capacity}
       />
 

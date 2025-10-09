@@ -107,47 +107,52 @@ const LoginScreen = ({ navigation }) => {
             )}
           </TouchableOpacity>
 
-          {/* Divider */}
-          <View style={sharedStyles.dividerContainer}>
-            <View style={sharedStyles.dividerLine} />
-            <Text style={sharedStyles.dividerText}>eller fortsæt med</Text>
-            <View style={sharedStyles.dividerLine} />
-          </View>
+          {/* Social Login Buttons - Hidden on mobile */}
+          {Platform.OS === 'web' && (
+            <>
+              {/* Divider */}
+              <View style={sharedStyles.dividerContainer}>
+                <View style={sharedStyles.dividerLine} />
+                <Text style={sharedStyles.dividerText}>eller fortsæt med</Text>
+                <View style={sharedStyles.dividerLine} />
+              </View>
 
-          {/* Social Login Buttons */}
-          <View style={sharedStyles.socialButtonsContainer}>
-            <TouchableOpacity
-              style={sharedStyles.socialButton}
-              onPress={handleGoogleSignIn}
-              disabled={loading}
-            >
-              <Image
-                source={require('../assets/icons/google-icon.webp')}
-                style={sharedStyles.socialButtonIcon}
-                resizeMode="contain"
-              />
-              <Text style={sharedStyles.socialButtonText}>Google</Text>
-            </TouchableOpacity>
+              {/* Social Login Buttons */}
+              <View style={sharedStyles.socialButtonsContainer}>
+                <TouchableOpacity
+                  style={sharedStyles.socialButton}
+                  onPress={handleGoogleSignIn}
+                  disabled={loading}
+                >
+                  <Image
+                    source={require('../assets/icons/google-icon.webp')}
+                    style={sharedStyles.socialButtonIcon}
+                    resizeMode="contain"
+                  />
+                  <Text style={sharedStyles.socialButtonText}>Google</Text>
+                </TouchableOpacity>
 
-            <TouchableOpacity
-              style={sharedStyles.socialButton}
-              onPress={() => navigation.navigate('PhoneLogin')}
-              disabled={loading}
-            >
-              <Phone size={20} color="#002300" strokeWidth={2.5} />
-              <Text style={sharedStyles.socialButtonText}>Telefon</Text>
-            </TouchableOpacity>
-          </View>
+                <TouchableOpacity
+                  style={sharedStyles.socialButton}
+                  onPress={() => navigation.navigate('PhoneLogin')}
+                  disabled={loading}
+                >
+                  <Phone size={20} color="#002300" strokeWidth={2.5} />
+                  <Text style={sharedStyles.socialButtonText}>Telefon</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
         </View>
 
         {/* Footer */}
-        <View style={sharedStyles.footer}>
-          <Text style={sharedStyles.footerText}>Ny bruger? </Text>
+        <View style={[sharedStyles.footer, { flexDirection: 'column', gap: 8 }]}>
+          <Text style={sharedStyles.footerText}>Ny bruger?</Text>
           <TouchableOpacity
             onPress={() => navigation.navigate('Signup')}
             disabled={loading}
           >
-            <Text style={sharedStyles.footerLink}>Kom i gang her</Text>
+            <Text style={[sharedStyles.footerLink, { color: '#202020' }]}>Ny bruger? Kom i gang her</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
