@@ -1,5 +1,7 @@
 {
-  "projects": {},
+  "projects": {
+    "horsetravel-36166": "horsetravel-36166"
+  },
   "targets": {},
   "etags": {}
 }

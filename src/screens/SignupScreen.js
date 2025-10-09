@@ -139,26 +139,29 @@ const SignupScreen = ({ navigation }) => {
             )}
           </TouchableOpacity>
 
-          {/* Divider */}
-          <View style={styles.dividerContainer}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>eller fortsæt med</Text>
-            <View style={styles.dividerLine} />
-          </View>
+          {/* Divider and Google Sign-In Button - Only show on web */}
+          {Platform.OS === 'web' && (
+            <>
+              <View style={styles.dividerContainer}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>eller fortsæt med</Text>
+                <View style={styles.dividerLine} />
+              </View>
 
-          {/* Google Sign-In Button */}
-          <TouchableOpacity
-            style={styles.socialButton}
-            onPress={handleGoogleSignIn}
-            disabled={loading}
-          >
-            <Image
-              source={require('../assets/icons/google-icon.webp')}
-              style={styles.socialButtonIcon}
-              resizeMode="contain"
-            />
-            <Text style={styles.socialButtonText}>Fortsæt med Google</Text>
-          </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.socialButton}
+                onPress={handleGoogleSignIn}
+                disabled={loading}
+              >
+                <Image
+                  source={require('../assets/icons/google-icon.webp')}
+                  style={styles.socialButtonIcon}
+                  resizeMode="contain"
+                />
+                <Text style={styles.socialButtonText}>Fortsæt med Google</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
 
         {/* Footer */}
