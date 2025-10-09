@@ -6,6 +6,7 @@ import { useOrganization } from '../context/OrganizationContext';
 import { sharedStyles, colors } from '../styles/sharedStyles';
 import { confirmAlert, showAlert } from '../utils/platformAlerts';
 
+// Manage the horse roster with create, edit, and delete workflows across private/org contexts.
 const HorseManagementScreen = ({ navigation, route }) => {
   const { activeMode, activeOrganization, hasPermission } = useOrganization();
   const [horses, setHorses] = useState([]);

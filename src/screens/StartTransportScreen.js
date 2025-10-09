@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+
+// Guided workflow for planning or logging a transport, including vehicle, horse, and route selection.
 import { View, Text, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator, Pressable, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { ChevronRight, MapPin, Clock, Navigation, AlertTriangle, Calendar } from 'lucide-react-native';

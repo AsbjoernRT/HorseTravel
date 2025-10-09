@@ -6,6 +6,7 @@ import { useOrganization } from '../context/OrganizationContext';
 import { sharedStyles, colors } from '../styles/sharedStyles';
 import { confirmAlert, showAlert } from '../utils/platformAlerts';
 
+// CRUD hub for the vehicle fleet, respecting mode-based permissions.
 const VehicleManagementScreen = ({ navigation, route }) => {
   const { activeMode, activeOrganization, hasPermission } = useOrganization();
   const [vehicles, setVehicles] = useState([]);

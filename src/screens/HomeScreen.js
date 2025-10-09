@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+
+// Dashboard entry point that surfaces transport status and quick actions for the signed-in user.
 import { View, Text, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator } from 'react-native';
 import { Truck } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
