@@ -3,6 +3,7 @@ import { View, Text, Pressable } from 'react-native';
 import { Pencil, Trash2 } from 'lucide-react-native';
 import { colors } from '../styles/sharedStyles';
 
+// Compact horse summary card with optional selection and inline edit/delete actions.
 const HorseCard = ({ horse, isSelected, onSelect, onEdit, onDelete }) => {
   return (
     <View
