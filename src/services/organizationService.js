@@ -14,7 +14,7 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from '../config/firebase';
 
-// Create a new organization
+// Service helpers that encapsulate every organization-related Firestore workflow.
 export const createOrganization = async (name, description = '') => {
   try {
     const user = auth.currentUser;
@@ -143,7 +143,7 @@ export const getUserOrganizations = async () => {
   }
 };
 
-// Get organization members
+// Pulls every member document for the given organization.
 export const getOrganizationMembers = async (organizationId) => {
   try {
     const membersSnapshot = await getDocs(
@@ -160,7 +160,7 @@ export const getOrganizationMembers = async (organizationId) => {
   }
 };
 
-// Invite user to organization
+// Creates a pending invitation that can later be accepted by the invited account.
 export const inviteToOrganization = async (organizationId, email, role = 'member') => {
   try {
     const user = auth.currentUser;
@@ -201,7 +201,7 @@ export const inviteToOrganization = async (organizationId, email, role = 'member
   }
 };
 
-// Accept organization invitation
+// Accepts a previously issued invitation and provisions permissions for the new member.
 export const acceptInvitation = async (invitationId) => {
   try {
     const user = auth.currentUser;
@@ -268,7 +268,7 @@ export const acceptInvitation = async (invitationId) => {
   }
 };
 
-// Switch user mode (private/organization)
+// Persist the preferred context (private vs. organization) on the user profile document.
 export const switchUserMode = async (mode, organizationId = null) => {
   try {
     const user = auth.currentUser;
@@ -291,7 +291,7 @@ export const switchUserMode = async (mode, organizationId = null) => {
   }
 };
 
-// Update organization member role
+// Elevate or demote a member and optionally override the default permission set.
 export const updateMemberRole = async (organizationId, memberId, role, permissions) => {
   try {
     const user = auth.currentUser;
@@ -315,7 +315,7 @@ export const updateMemberRole = async (organizationId, memberId, role, permissio
   }
 };
 
-// Remove member from organization
+// Removes a member document, guarding against accidentally removing the owner.
 export const removeMember = async (organizationId, memberId) => {
   try {
     const user = auth.currentUser;

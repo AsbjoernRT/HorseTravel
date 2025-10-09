@@ -5,12 +5,14 @@ import { useOrganization } from '../context/OrganizationContext';
 import { useNavigation } from '@react-navigation/native';
 import { sharedStyles, colors } from '../styles/sharedStyles';
 
+// Control that lets the user jump between private mode and any joined organization.
 const ModeSwitcher = () => {
   const { activeMode, activeOrganization, organizations, switchMode, loading } = useOrganization();
   const navigation = useNavigation();
   const [modalVisible, setModalVisible] = useState(false);
   const [switching, setSwitching] = useState(false);
 
+  // Updates context state and closes the picker while feedback spinner is shown.
   const handleModeSwitch = async (mode, orgId = null) => {
     try {
       setSwitching(true);

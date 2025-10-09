@@ -5,6 +5,7 @@ import { createOrganization, joinOrganizationByCode } from '../services/organiza
 import { useOrganization } from '../context/OrganizationContext';
 import { sharedStyles, colors } from '../styles/sharedStyles';
 
+// Lets a new member either create an organization or join via invitation code.
 const OrganizationSetupScreen = ({ navigation }) => {
   const [mode, setMode] = useState('create'); // 'create' or 'join'
   const [organizationName, setOrganizationName] = useState('');
@@ -13,6 +14,7 @@ const OrganizationSetupScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const { reloadOrganizations } = useOrganization();
 
+  // Handles creation flow and surfaces the generated invite code to the user.
   const handleCreateOrganization = async () => {
     if (!organizationName.trim()) {
       Alert.alert('Fejl', 'Indtast organisations navn');
@@ -45,6 +47,7 @@ const OrganizationSetupScreen = ({ navigation }) => {
     }
   };
 
+  // Allows the user to activate an existing organization using its public join code.
   const handleJoinOrganization = async () => {
     if (!organizationCode.trim()) {
       Alert.alert('Fejl', 'Indtast organisations kode');
@@ -90,7 +93,7 @@ const OrganizationSetupScreen = ({ navigation }) => {
           </Text>
         </View>
 
-        {/* Mode Toggle */}
+        {/* Mode toggle lets the user switch between create or join flows */}
         <View style={{
           flexDirection: 'row',
           backgroundColor: colors.secondary,
