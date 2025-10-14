@@ -52,7 +52,7 @@ const HorseSelectionModal = ({ visible, horses, selectedHorses, onToggleHorse, o
           </Text>
           {item.age && (
             <Text style={{ fontSize: 12, color: '#999', marginTop: 2 }}>
-              {item.age} år
+              Født: {item.age}
             </Text>
           )}
         </View>
@@ -152,7 +152,7 @@ const HorseSelectionModal = ({ visible, horses, selectedHorses, onToggleHorse, o
                   fontSize: 16,
                   color: colors.primary,
                 }}
-                placeholder="Søg efter navn, race, chip..."
+                placeholder="Søg efter navn eller pasnummer..."
                 placeholderTextColor="#999"
                 value={searchQuery}
                 onChangeText={setSearchQuery}

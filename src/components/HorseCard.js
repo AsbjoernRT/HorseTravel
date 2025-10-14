@@ -28,7 +28,7 @@ const HorseCard = ({ horse, isSelected, onSelect, onEdit, onDelete }) => {
         </Text>
         {horse.age && (
           <Text style={{ fontSize: 12, color: '#999', marginTop: 2 }}>
-            {horse.age} år
+            Født: {horse.age}
           </Text>
         )}
       </Pressable>

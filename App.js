@@ -31,6 +31,7 @@ import VehicleManagementScreen from './src/screens/VehicleManagementScreen';
 import HorseManagementScreen from './src/screens/HorseManagementScreen';
 import TransportListScreen from './src/screens/TransportListScreen';
 import StartTransportScreen from './src/screens/StartTransportScreen';
+import TransportDetailsScreen from './src/screens/TransportDetailsScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -176,6 +177,11 @@ const MainStack = () => (
       name="StartTransport"
       component={StartTransportScreen}
       options={{ title: 'Start Transport' }}
+    />
+    <Stack.Screen
+      name="TransportDetails"
+      component={TransportDetailsScreen}
+      options={{ title: 'Transport Detaljer' }}
     />
   </Stack.Navigator>
 );

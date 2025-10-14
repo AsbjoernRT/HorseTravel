@@ -50,7 +50,7 @@ const HorseManagementScreen = ({ navigation, route }) => {
 
   const handleSave = async () => {
     if (!name.trim() || !breed.trim()) {
-      Alert.alert('Fejl', 'Udfyld venligst navn og race');
+      Alert.alert('Fejl', 'Udfyld venligst navn og forbund');
       return;
     }
 
@@ -134,12 +134,12 @@ const HorseManagementScreen = ({ navigation, route }) => {
         </Text>
         {item.age && (
           <Text style={{ fontSize: 12, color: '#999', marginTop: 2 }}>
-            Alder: {item.age} år
+            Født: {item.age}
           </Text>
         )}
         {item.chipNumber && (
           <Text style={{ fontSize: 12, color: '#999', marginTop: 2 }}>
-            Chip: {item.chipNumber}
+            Pasnummer: {item.chipNumber}
           </Text>
         )}
       </View>
@@ -224,7 +224,7 @@ const HorseManagementScreen = ({ navigation, route }) => {
 
             <View style={{ marginBottom: 12 }}>
               <Text style={{ fontSize: 14, fontWeight: '600', color: colors.primary, marginBottom: 4 }}>
-                Race *
+                Forbund *
               </Text>
               <TextInput
                 style={{
@@ -242,7 +242,7 @@ const HorseManagementScreen = ({ navigation, route }) => {
 
             <View style={{ marginBottom: 12 }}>
               <Text style={{ fontSize: 14, fontWeight: '600', color: colors.primary, marginBottom: 4 }}>
-                Alder (år)
+                Født
               </Text>
               <TextInput
                 style={{
@@ -252,7 +252,7 @@ const HorseManagementScreen = ({ navigation, route }) => {
                   fontSize: 16,
                   color: colors.primary,
                 }}
-                placeholder="F.eks. 5"
+                placeholder="F.eks. 2016"
                 value={age}
                 onChangeText={setAge}
                 keyboardType="number-pad"
@@ -261,7 +261,7 @@ const HorseManagementScreen = ({ navigation, route }) => {
 
             <View style={{ marginBottom: 16 }}>
               <Text style={{ fontSize: 14, fontWeight: '600', color: colors.primary, marginBottom: 4 }}>
-                Chip nummer
+                Pasnummer
               </Text>
               <TextInput
                 style={{
