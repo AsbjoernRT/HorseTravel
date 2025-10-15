@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, FlatList, Alert, ActivityIndicator, ScrollView } from 'react-native';
-import { MapPin, Calendar, Plus, Edit2, Trash2 } from 'lucide-react-native';
+import { MapPin, Calendar, Plus, Edit2, Trash2, Clock } from 'lucide-react-native';
 import { useOrganization } from '../context/OrganizationContext';
 import { getTransports, deleteTransport } from '../services/transportService';
 import { sharedStyles, colors } from '../styles/sharedStyles';
@@ -83,12 +83,16 @@ const TransportListScreen = ({ navigation }) => {
   };
 
   const renderTransport = ({ item }) => (
-    <View style={{
-      backgroundColor: colors.white,
-      padding: 16,
-      marginBottom: 12,
-      borderRadius: 12,
-    }}>
+    <TouchableOpacity
+      style={{
+        backgroundColor: colors.white,
+        padding: 16,
+        marginBottom: 12,
+        borderRadius: 12,
+      }}
+      onPress={() => navigation.navigate('TransportDetails', { transportId: item.id })}
+      activeOpacity={0.7}
+    >
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
@@ -104,6 +108,9 @@ const TransportListScreen = ({ navigation }) => {
             </View>
             <Text style={{ fontSize: 12, color: '#999' }}>
               {item.horseCount} {item.horseCount === 1 ? 'hest' : 'heste'}
+            </Text>
+            <Text style={{ fontSize: 12, color: '#ccc' }}>
+              • Tryk for detaljer
             </Text>
           </View>
 
@@ -124,6 +131,30 @@ const TransportListScreen = ({ navigation }) => {
           <Text style={{ fontSize: 14, color: '#999', marginBottom: 4 }}>
             {item.vehicleName}
           </Text>
+
+          {(item.distance || item.durationText || item.routeInfo) && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              {(item.distance || item.routeInfo?.distanceText) && (
+                <>
+                  <MapPin size={12} color="#999" />
+                  <Text style={{ fontSize: 12, color: '#999' }}>
+                    {item.distance || item.routeInfo?.distanceText}
+                  </Text>
+                </>
+              )}
+              {(item.distance || item.routeInfo?.distanceText) && (item.durationText || item.routeInfo?.durationText) && (
+                <Text style={{ fontSize: 12, color: '#ccc' }}> • </Text>
+              )}
+              {(item.durationText || item.routeInfo?.durationText) && (
+                <>
+                  <Clock size={12} color="#999" />
+                  <Text style={{ fontSize: 12, color: '#999' }}>
+                    {item.durationText || item.routeInfo?.durationText}
+                  </Text>
+                </>
+              )}
+            </View>
+          )}
 
           {item.departureDate && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -149,14 +180,17 @@ const TransportListScreen = ({ navigation }) => {
                 padding: 8,
                 borderRadius: 8,
               }}
-              onPress={() => handleDelete(item)}
+              onPress={(e) => {
+                e.stopPropagation();
+                handleDelete(item);
+              }}
             >
               <Trash2 size={18} color="#d32f2f" />
             </TouchableOpacity>
           </View>
         )}
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   if (loading) {

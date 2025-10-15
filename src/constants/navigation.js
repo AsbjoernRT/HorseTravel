@@ -12,6 +12,7 @@ export const SCREEN_NAMES = {
   HOME: 'Home',
   START_TRANSPORT: 'StartTransport',
   TRANSPORT_LIST: 'TransportList',
+  TRANSPORT_DETAILS: 'TransportDetails',
 
   // Management screens (these are Tab screens)
   VEHICLE_MANAGEMENT: 'VehicleManagement',
