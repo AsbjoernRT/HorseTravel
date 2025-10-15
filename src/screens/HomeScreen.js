@@ -196,7 +196,7 @@ const HomeScreen = ({ navigation }) => {
           {activeTransport ? (
             <TouchableOpacity
               style={[globalStyles.listItem, { backgroundColor: '#e8f5e8', borderColor: '#002300', borderWidth: 2 }]}
-              onPress={() => navigation.navigate('ActiveTransport')}
+              onPress={() => navigation.navigate('TransportDetails', { transportId: activeTransport.id })}
             >
               <Text style={[globalStyles.listItemTitle, { color: '#002300' }]}>🚛 AKTIV TRANSPORT</Text>
               <Text style={globalStyles.listItemSubtitle}>
