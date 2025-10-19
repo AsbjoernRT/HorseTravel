@@ -2,6 +2,9 @@
 
 En komplet mobilapplikation til håndtering af hestetransport. Designet til stutterier, rideklubber og transportvirksomheder for at strømline hele processen fra planlægning til dokumentation og overvågning.
 
+**#DEMOVIDEO LINK**
+https://www.youtube.com/watch?v=1iJS4tUdzNE
+
 ## Hvad gør vi
 
 HorseTravel er en alt-i-én platform der hjælper med at håndtere:
