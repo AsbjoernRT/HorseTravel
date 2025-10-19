@@ -2,7 +2,7 @@ import { doc, getDoc, updateDoc, getDocs, collection, query, where } from 'fireb
 import { db } from '../config/firebase';
 
 /**
- * Normalizes legacy user documents so the organization features can rely on consistent fields.
+ * Normalizes legacy user documents so the organization features can rely on consistent fields
  * This should be called when a user logs in and their profile is missing fields.
  */
 export const migrateUserProfile = async (userId) => {
@@ -33,12 +33,12 @@ export const migrateUserProfile = async (userId) => {
       updates.updatedAt = new Date().toISOString();
     }
 
-    // Migrate organizationIds field
+    // Migrate organizationIds field if missing
     if (userData.organizationIds === undefined) {
       // Find all organizations where user is a member or owner
       const organizationIds = [];
 
-      // Get organizations where user is owner
+      // Get organizations where user is owner 
       const ownedOrgsQuery = query(
         collection(db, 'organizations'),
         where('ownerId', '==', userId)
@@ -51,7 +51,7 @@ export const migrateUserProfile = async (userId) => {
       updates.organizationIds = organizationIds;
     }
 
-    // Only update if there are changes
+    // Only update if there are changes to make 
     if (Object.keys(updates).length > 0) {
       await updateDoc(userDocRef, updates);
       console.log('User profile migrated successfully', updates);
