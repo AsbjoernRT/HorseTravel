@@ -5,7 +5,7 @@ import { useOrganization } from '../context/OrganizationContext';
 import { useNavigation } from '@react-navigation/native';
 import { sharedStyles, colors } from '../styles/sharedStyles';
 
-// Control that lets the user jump between private mode and any joined organization.
+// Control that lets the user jump between private mode and any joined organizations...
 const ModeSwitcher = () => {
   const { activeMode, activeOrganization, organizations, switchMode, loading } = useOrganization();
   const navigation = useNavigation();

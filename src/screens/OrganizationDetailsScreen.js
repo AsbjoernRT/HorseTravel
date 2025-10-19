@@ -6,7 +6,7 @@ import { useOrganization } from '../context/OrganizationContext';
 import { sharedStyles, colors } from '../styles/sharedStyles';
 import * as Clipboard from 'expo-clipboard';
 
-// Shows organization metadata, invite code, and member roster for the selected org.
+// Shows organization metadata, invite code, and member roster for the selected organization.
 const OrganizationDetailsScreen = ({ route, navigation }) => {
   const { organizationId } = route.params;
   const { activeOrganization } = useOrganization();
@@ -18,7 +18,7 @@ const OrganizationDetailsScreen = ({ route, navigation }) => {
     loadOrganizationData();
   }, [organizationId]);
 
-  // Pulls the latest organization record and member list from Firestore.
+  // Pulls the latest organization record and member list from Firestore
   const loadOrganizationData = async () => {
     try {
       setLoading(true);
@@ -54,7 +54,7 @@ const OrganizationDetailsScreen = ({ route, navigation }) => {
     }
   };
 
-  // Maps role into the corresponding UI icon for quick scanning.
+  // Maps role into the corresponding UI icon for quick scanning...
   const getRoleIcon = (role) => {
     switch (role) {
       case 'owner':

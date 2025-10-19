@@ -26,7 +26,7 @@ export const createOrganization = async (name, description = '') => {
     const orgData = {
       name,
       description,
-      organizationCode, // Unique code for joining
+      organizationCode, // Unique code for joining the org...
       logoURL: null,
       ownerId: user.uid,
       createdAt: serverTimestamp(),
@@ -57,11 +57,11 @@ export const createOrganization = async (name, description = '') => {
       invitedBy: user.uid,
     });
 
-    // Update user's active organization and add to organizationIds array
+    // Update user's active organization and add to organizationIds array.
     await updateDoc(doc(db, 'users', user.uid), {
       activeMode: 'organization',
       activeOrganizationId: orgRef.id,
-      organizationIds: arrayUnion(orgRef.id), // Add org ID to array
+      organizationIds: arrayUnion(orgRef.id), // Add org ID to array if not already present
       updatedAt: serverTimestamp(),
     });
 
@@ -143,7 +143,7 @@ export const getUserOrganizations = async () => {
   }
 };
 
-// Pulls every member document for the given organization.
+// Pulls every member document for the given organization
 export const getOrganizationMembers = async (organizationId) => {
   try {
     const membersSnapshot = await getDocs(
@@ -192,7 +192,7 @@ export const inviteToOrganization = async (organizationId, email, role = 'member
 
     const invitationRef = await addDoc(collection(db, 'invitations'), invitationData);
 
-    // TODO: Send email invitation (requires Cloud Function or email service)
+    // TODO: ((Send email invitation (requires Cloud Function or email service))
 
     return { id: invitationRef.id, ...invitationData };
   } catch (error) {
@@ -297,7 +297,7 @@ export const updateMemberRole = async (organizationId, memberId, role, permissio
     const user = auth.currentUser;
     if (!user) throw new Error('Du skal være logget ind');
 
-    // Check if user has permission
+    // Check if user has permission to update roles 
     const memberDoc = await getDoc(doc(db, 'organizations', organizationId, 'members', user.uid));
     if (!memberDoc.exists() || !memberDoc.data().permissions.canManageMembers) {
       throw new Error('Du har ikke tilladelse til at opdatere medlemmer');
@@ -315,7 +315,7 @@ export const updateMemberRole = async (organizationId, memberId, role, permissio
   }
 };
 
-// Removes a member document, guarding against accidentally removing the owner.
+// Removes a member document, guarding against accidentally removing the owner or self-removal
 export const removeMember = async (organizationId, memberId) => {
   try {
     const user = auth.currentUser;
