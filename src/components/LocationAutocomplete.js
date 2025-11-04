@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, TextInput, FlatList, Text, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
+import { View, TextInput, ScrollView, Text, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { MapPin } from 'lucide-react-native';
-import { colors } from '../styles/sharedStyles';
+import { colors } from '../styles/theme';
 import { loadGoogleMapsAPI } from '../utils/googleMapsLoader';
+import { getPlaceAutocomplete } from '../services/mapsService';
 
 // Address input that leverages Google Places autocomplete across web and native platforms.
 const LocationAutocomplete = ({
@@ -78,7 +79,7 @@ const LocationAutocomplete = ({
       try {
         console.log('Platform:', Platform.OS, 'Maps loaded:', mapsLoadedRef.current);
         if (Platform.OS === 'web' && mapsLoadedRef.current) {
-          // Use new AutocompleteSuggestion API
+          // Use new AutocompleteSuggestion API for web
           const request = {
             input: value,
             sessionToken: sessionTokenRef.current,
@@ -131,8 +132,12 @@ const LocationAutocomplete = ({
           }
           setLoading(false);
         } else {
-          // Fallback for native (you'd need a backend proxy)
-          setSuggestions([]);
+          // Use REST API for native platforms (iOS/Android)
+          console.log('Using REST API for autocomplete on', Platform.OS);
+          const results = await getPlaceAutocomplete(value);
+          console.log('REST API results:', results);
+          setSuggestions(results);
+          setShowSuggestions(results.length > 0);
           setLoading(false);
         }
       } catch (error) {
@@ -160,31 +165,6 @@ const LocationAutocomplete = ({
       onLocationSelect(suggestion);
     }
   };
-
-  const renderSuggestion = ({ item }) => (
-    <TouchableOpacity
-      style={{
-        flexDirection: 'row',
-        padding: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f0f0f0',
-        alignItems: 'center',
-      }}
-      onPress={() => handleSelectSuggestion(item)}
-    >
-      <MapPin size={16} color="#666" style={{ marginRight: 12 }} />
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 14, fontWeight: '600', color: colors.primary }}>
-          {item.mainText}
-        </Text>
-        {item.secondaryText && (
-          <Text style={{ fontSize: 12, color: '#666', marginTop: 2 }}>
-            {item.secondaryText}
-          </Text>
-        )}
-      </View>
-    </TouchableOpacity>
-  );
 
   return (
     <View style={{ position: 'relative', zIndex: 10 }}>
@@ -253,13 +233,36 @@ const LocationAutocomplete = ({
             zIndex: 100,
           }}
         >
-          <FlatList
-            data={suggestions}
-            renderItem={renderSuggestion}
-            keyExtractor={(item) => item.placeId}
+          <ScrollView
             keyboardShouldPersistTaps="handled"
             nestedScrollEnabled={true}
-          />
+          >
+            {suggestions.map((item) => (
+              <TouchableOpacity
+                key={item.placeId}
+                style={{
+                  flexDirection: 'row',
+                  padding: 12,
+                  borderBottomWidth: 1,
+                  borderBottomColor: '#f0f0f0',
+                  alignItems: 'center',
+                }}
+                onPress={() => handleSelectSuggestion(item)}
+              >
+                <MapPin size={16} color="#666" style={{ marginRight: 12 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: colors.primary }}>
+                    {item.mainText}
+                  </Text>
+                  {item.secondaryText && (
+                    <Text style={{ fontSize: 12, color: '#666', marginTop: 2 }}>
+                      {item.secondaryText}
+                    </Text>
+                  )}
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </View>
       )}
     </View>

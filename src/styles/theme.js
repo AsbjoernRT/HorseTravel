@@ -3,14 +3,16 @@ import { StyleSheet, Platform } from 'react-native';
 // Brand colors
 export const colors = {
   primary: '#002300',
-  secondary: '#d6d1ca',
+  secondary: '#f2f2f2',
   white: '#ffffff',
   black: '#202020',
   placeholder: '#999',
+  textSecondary: '#666666',
+  border: '#cccccc',
 };
 
-// Shared styles used across multiple screens
-export const sharedStyles = StyleSheet.create({
+// Common styles used across the app
+export const theme = StyleSheet.create({
   // Containers
   container: {
     flex: 1,
@@ -19,6 +21,13 @@ export const sharedStyles = StyleSheet.create({
   containerPrimary: {
     flex: 1,
     backgroundColor: colors.primary,
+  },
+  contentContainer: {
+    flex: 1,
+    backgroundColor: colors.secondary,
+    padding: 20,
+    paddingTop: 100,
+    paddingBottom: 100,
   },
   scrollContent: {
     flexGrow: 1,
@@ -46,12 +55,19 @@ export const sharedStyles = StyleSheet.create({
   welcomeText: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: colors.white,
+    color: colors.black,
     marginBottom: 8,
   },
   subtitleText: {
     fontSize: 16,
     color: colors.secondary,
+  },
+  header: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    color: colors.black,
+    textAlign: 'center',
   },
 
   // Inputs
@@ -76,7 +92,7 @@ export const sharedStyles = StyleSheet.create({
 
   // Buttons
   primaryButton: {
-    backgroundColor: colors.secondary,
+    backgroundColor: Platform.OS === 'web' ? colors.secondary : colors.primary,
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
@@ -98,9 +114,28 @@ export const sharedStyles = StyleSheet.create({
     opacity: 0.6,
   },
   primaryButtonText: {
-    color: colors.primary,
+    color: Platform.OS === 'web' ? colors.primary : colors.white,
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  button: {
+    backgroundColor: colors.primary,
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  buttonText: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  addButton: {
+    backgroundColor: colors.primary,
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 15,
   },
 
   // Social buttons
@@ -188,5 +223,57 @@ export const sharedStyles = StyleSheet.create({
     color: colors.secondary,
     fontSize: 14,
     lineHeight: 20,
+  },
+
+  // List items
+  listItem: {
+    backgroundColor: colors.white,
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  listItemTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.black,
+  },
+  listItemSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 5,
+  },
+
+  // Profile
+  profileContainer: {
+    alignItems: 'center',
+    paddingTop: 40,
+  },
+  profileImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: colors.secondary,
+    marginBottom: 20,
+  },
+  profileName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: colors.black,
+    marginBottom: 10,
+  },
+  profileInfo: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    marginBottom: 5,
   },
 });

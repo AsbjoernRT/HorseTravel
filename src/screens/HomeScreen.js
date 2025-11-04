@@ -1,22 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 // Dashboard entry point that surfaces transport status and quick actions for the signed-in user.
-import { View, Text, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator } from 'react-native';
-import { Truck, LogOut } from 'lucide-react-native';
+import { View, Text, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator, Dimensions } from 'react-native';
+import { Truck, LogOut, Calendar, TrendingUp, Heart, Navigation } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
-import { globalStyles } from '../styles/globalStyles';
+import { theme, colors } from '../styles/theme';
 import { useTransport } from '../context/TransportContext';
 import { useAuth } from '../context/AuthContext';
 import { useOrganization } from '../context/OrganizationContext';
 import { getTransportsByStatus, updateTransport } from '../services/transportService';
 import { logOut } from '../services/authService';
 import ModeSwitcher from '../components/ModeSwitcher';
+import { useFocusEffect } from '@react-navigation/native';
+
+const { width } = Dimensions.get('window');
 
 const HomeScreen = ({ navigation }) => {
   const { activeTransport } = useTransport();
   const { user, userProfile } = useAuth();
   const { activeMode, activeOrganization } = useOrganization();
   const [cleaningUp, setCleaningUp] = useState(false);
+  const [stats, setStats] = useState({
+    week: { horses: 0, km: 0 },
+    month: { horses: 0, km: 0 },
+    year: { horses: 0, km: 0 },
+    allTime: { horses: 0, km: 0 },
+    upcomingCount: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [currentStatPage, setCurrentStatPage] = useState(0);
+  const scrollViewRef = useRef(null);
+
+  const statPeriods = [
+    { key: 'week', label: 'Denne Uge' },
+    { key: 'month', label: 'Denne Måned' },
+    { key: 'year', label: 'Dette År' },
+    { key: 'allTime', label: 'Total' },
+  ];
 
   const handleLogout = async () => {
     Alert.alert(
@@ -47,6 +67,33 @@ const HomeScreen = ({ navigation }) => {
         }
       ]
     );
+  };
+
+  // Load stats on mount and when mode/org changes
+  useFocusEffect(
+    React.useCallback(() => {
+      loadStats();
+    }, [activeMode, activeOrganization])
+  );
+
+  const loadStats = async () => {
+    try {
+      setLoading(true);
+
+      // For now, use simple placeholder stats to avoid index issues
+      // TODO: Create Firestore indexes and implement full stats
+      setStats({
+        week: { horses: 0, km: 0 },
+        month: { horses: 0, km: 0 },
+        year: { horses: 0, km: 0 },
+        allTime: { horses: 0, km: 0 },
+        upcomingCount: 0,
+      });
+    } catch (error) {
+      console.error('Error loading stats:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const cleanupDuplicateActiveTransports = async () => {
@@ -114,7 +161,7 @@ const HomeScreen = ({ navigation }) => {
   };
 
   return (
-    <ScrollView style={globalStyles.container}>
+    <ScrollView style={theme.container} contentContainerStyle={{ padding: 20, paddingTop: 60 }}>
       {/* Logo */}
       <View style={{ alignItems: 'center', marginBottom: 20 }}>
         <Image
@@ -123,29 +170,10 @@ const HomeScreen = ({ navigation }) => {
         />
       </View>
 
-      {/* Mode Switcher and Logout */}
+      {/* Mode Switcher
       <View style={{ alignItems: 'center', marginBottom: 20 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <ModeSwitcher />
-          <TouchableOpacity
-            style={{
-              backgroundColor: '#d6d1ca',
-              padding: 8,
-              borderRadius: 20,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 6,
-              paddingHorizontal: 12,
-            }}
-            onPress={handleLogout}
-          >
-            <LogOut size={16} color="#002300" strokeWidth={2.5} />
-            <Text style={{ color: '#002300', fontSize: 14, fontWeight: '600' }}>
-              Log ud
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+        <ModeSwitcher />
+      </View> */}
 
       {/* Welcome message */}
       {userProfile && (
@@ -161,10 +189,67 @@ const HomeScreen = ({ navigation }) => {
           : `Organisation: ${activeOrganization?.name || 'Ingen'}`}
       </Text>
 
+      {/* Swipeable Stats */}
+      <View style={{ marginBottom: 20 }}>
+        <ScrollView
+          ref={scrollViewRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={(event) => {
+            const newPage = Math.round(event.nativeEvent.contentOffset.x / (width - 40));
+            setCurrentStatPage(newPage);
+          }}
+          contentContainerStyle={{ paddingRight: 40 }}
+        >
+          {statPeriods.map((period, index) => (
+            <View key={period.key} style={{ width: width - 40, paddingRight: index < statPeriods.length - 1 ? 12 : 0 }}>
+              <View style={{ backgroundColor: colors.white, padding: 20, borderRadius: 12, marginBottom: 8 }}>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textSecondary, marginBottom: 16, textAlign: 'center' }}>
+                  {period.label}
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                  <View style={{ flex: 1, alignItems: 'center' }}>
+                    <Heart size={28} color={colors.primary} strokeWidth={2} />
+                    <Text style={{ fontSize: 28, fontWeight: 'bold', color: colors.black, marginTop: 12 }}>
+                      {loading ? '-' : stats[period.key].horses}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 4, textAlign: 'center' }}>
+                      Heste Transporteret
+                    </Text>
+                  </View>
+                  <View style={{ width: 1, backgroundColor: colors.secondary, marginVertical: 8 }} />
+                  <View style={{ flex: 1, alignItems: 'center' }}>
+                    <Navigation size={28} color={colors.primary} strokeWidth={2} />
+                    <Text style={{ fontSize: 28, fontWeight: 'bold', color: colors.black, marginTop: 12 }}>
+                      {loading ? '-' : stats[period.key].km}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 4, textAlign: 'center' }}>
+                      KM Kørt
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+        {/* Page Indicators */}
+        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 8 }}>
+          {statPeriods.map((_, index) => (
+            <View
+              key={index}
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: currentStatPage === index ? colors.primary : colors.border,
+              }}
+            />
+          ))}
+        </View>
+      </View>
+
       <View style={{ marginTop: 20 }}>
-        <Text style={{ fontSize: 18, marginBottom: 15, textAlign: 'center', color: '#202020' }}>
-          Din komplette løsning for hestetransport
-        </Text>
 
         {/* Start New Transport Button */}
         <TouchableOpacity
@@ -195,11 +280,11 @@ const HomeScreen = ({ navigation }) => {
           {/* Active transport if exists */}
           {activeTransport ? (
             <TouchableOpacity
-              style={[globalStyles.listItem, { backgroundColor: '#e8f5e8', borderColor: '#002300', borderWidth: 2 }]}
+              style={[theme.listItem, { backgroundColor: '#e8f5e8', borderColor: '#002300', borderWidth: 2 }]}
               onPress={() => navigation.navigate('TransportDetails', { transportId: activeTransport.id })}
             >
-              <Text style={[globalStyles.listItemTitle, { color: '#002300' }]}>🚛 AKTIV TRANSPORT</Text>
-              <Text style={globalStyles.listItemSubtitle}>
+              <Text style={[theme.listItemTitle, { color: '#002300' }]}>AKTIV TRANSPORT</Text>
+              <Text style={theme.listItemSubtitle}>
                 {activeTransport.fromLocation} → {activeTransport.toLocation}
               </Text>
               <Text style={{ color: '#666666', marginTop: 5 }}>
@@ -210,18 +295,28 @@ const HomeScreen = ({ navigation }) => {
               </Text>
             </TouchableOpacity>
           ) : (
-            <View style={globalStyles.listItem}>
-              <Text style={globalStyles.listItemTitle}>Næste Transport</Text>
-              <Text style={globalStyles.listItemSubtitle}>Ingen planlagte transporter</Text>
+            <View style={theme.listItem}>
+              <Text style={theme.listItemTitle}>Næste Transport</Text>
+              <Text style={theme.listItemSubtitle}>Ingen planlagte transporter</Text>
             </View>
           )}
 
-          {/* Planned transports overview */}
-          <View style={globalStyles.listItem}>
-            <Text style={globalStyles.listItemTitle}>Planlagte Kørsler</Text>
-            <Text style={{ fontSize: 28, fontWeight: 'bold', color: '#002300', marginTop: 10 }}>0</Text>
-            <Text style={{ color: '#666666', marginTop: 5 }}>Se alle kørsler</Text>
-          </View>
+          {/* Upcoming transports overview */}
+          <TouchableOpacity
+            style={theme.listItem}
+            onPress={() => navigation.navigate('TransportList')}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View>
+                <Text style={theme.listItemTitle}>Kommende Transporter</Text>
+                <Text style={{ fontSize: 28, fontWeight: 'bold', color: colors.primary, marginTop: 10 }}>
+                  {loading ? '-' : stats.upcomingCount}
+                </Text>
+                <Text style={{ color: colors.textSecondary, marginTop: 5 }}>Tryk for at se alle</Text>
+              </View>
+              <Calendar size={32} color={colors.primary} strokeWidth={2} />
+            </View>
+          </TouchableOpacity>
         </View>
       </View>
     </ScrollView>

@@ -130,10 +130,14 @@ service cloud.firestore {
                       request.resource.data.ownerId == request.auth.uid;
 
       // Members and owner can read organization data
-      allow read: if isAuthenticated() && (
+      // Also allow reading when querying by organizationCode (for joining)
+      allow get: if isAuthenticated() && (
         resource.data.ownerId == request.auth.uid ||
         exists(/databases/$(database)/documents/organizations/$(organizationId)/members/$(request.auth.uid))
       );
+
+      // Allow list queries for all authenticated users (needed for searching by code)
+      allow list: if isAuthenticated();
 
       // Only owner can update/delete organization
       allow update: if isAuthenticated() &&
@@ -181,6 +185,80 @@ service cloud.firestore {
       // Users can update invitations sent to them (accept/decline)
       allow update: if isAuthenticated() &&
                       resource.data.invitedEmail == request.auth.token.email;
+    }
+
+    // Certificates collection
+    match /certificates/{certificateId} {
+      // Organization certificates
+      function isOrgCertificate() {
+        return resource.data.entityType == 'organization';
+      }
+
+      function isVehicleCertificate() {
+        return resource.data.entityType == 'vehicle';
+      }
+
+      // Check if user is organization member
+      function isOrgMember() {
+        return isOrgCertificate() &&
+               exists(/databases/$(database)/documents/organizations/$(resource.data.entityId)/members/$(request.auth.uid));
+      }
+
+      // Check if user can manage organization
+      function canManageOrg() {
+        return isOrgCertificate() &&
+               get(/databases/$(database)/documents/organizations/$(resource.data.entityId)/members/$(request.auth.uid)).data.role in ['owner', 'admin'];
+      }
+
+      // Check if user owns the vehicle or can manage it
+      function canAccessVehicle() {
+        let vehicle = get(/databases/$(database)/documents/vehicles/$(resource.data.entityId));
+        return (vehicle.data.ownerType == 'private' && vehicle.data.ownerId == request.auth.uid) ||
+               (vehicle.data.ownerType == 'organization' &&
+                exists(/databases/$(database)/documents/organizations/$(vehicle.data.organizationId)/members/$(request.auth.uid)));
+      }
+
+      function canManageVehicle() {
+        let vehicle = get(/databases/$(database)/documents/vehicles/$(resource.data.entityId));
+        return (vehicle.data.ownerType == 'private' && vehicle.data.ownerId == request.auth.uid) ||
+               (vehicle.data.ownerType == 'organization' &&
+                get(/databases/$(database)/documents/organizations/$(vehicle.data.organizationId)/members/$(request.auth.uid)).data.permissions.canManageVehicles == true);
+      }
+
+      // Helper to check vehicle access for create operations
+      function canManageVehicleById(vehicleId) {
+        let vehicle = get(/databases/$(database)/documents/vehicles/$(vehicleId));
+        return (vehicle.data.ownerType == 'private' && vehicle.data.ownerId == request.auth.uid) ||
+               (vehicle.data.ownerType == 'organization' &&
+                get(/databases/$(database)/documents/organizations/$(vehicle.data.organizationId)/members/$(request.auth.uid)).data.permissions.canManageVehicles == true);
+      }
+
+      // Read permissions - allow list queries for authenticated users
+      // Individual documents will be filtered by the query itself
+      allow list: if isAuthenticated();
+
+      allow get: if isAuthenticated() && (
+        (isOrgCertificate() && isOrgMember()) ||
+        (isVehicleCertificate() && canAccessVehicle())
+      );
+
+      // Write permissions
+      allow create: if isAuthenticated() && (
+        (request.resource.data.entityType == 'organization' &&
+         get(/databases/$(database)/documents/organizations/$(request.resource.data.entityId)/members/$(request.auth.uid)).data.role in ['owner', 'admin']) ||
+        (request.resource.data.entityType == 'vehicle' &&
+         canManageVehicleById(request.resource.data.entityId))
+      );
+
+      allow update: if isAuthenticated() && (
+        (isOrgCertificate() && canManageOrg()) ||
+        (isVehicleCertificate() && canManageVehicle())
+      );
+
+      allow delete: if isAuthenticated() && (
+        (isOrgCertificate() && canManageOrg()) ||
+        (isVehicleCertificate() && canManageVehicle())
+      );
     }
   }
 }

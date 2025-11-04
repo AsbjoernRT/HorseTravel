@@ -8,14 +8,11 @@ import {
   sendEmailVerification,
   GoogleAuthProvider,
   signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
   RecaptchaVerifier,
   signInWithPhoneNumber
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
-import { Platform } from 'react-native';
 
 /**
  * Authentication Service
@@ -125,27 +122,17 @@ export const getUserProfile = async (uid) => {
 };
 
 /**
- * Sign in with Google OAuth
+ * Sign in with Google OAuth (web only)
  * @returns {Promise<Object>} User object
  */
 export const signInWithGoogle = async () => {
   try {
     const provider = new GoogleAuthProvider();
-
-    // Add custom parameters if needed
     provider.setCustomParameters({
       prompt: 'select_account'
     });
 
-    // Use popup for web, redirect for mobile
-    let result;
-    if (Platform.OS === 'web') {
-      result = await signInWithPopup(auth, provider);
-    } else {
-      await signInWithRedirect(auth, provider);
-      result = await getRedirectResult(auth);
-    }
-
+    const result = await signInWithPopup(auth, provider);
     const user = result.user;
 
     // Check if user profile exists, if not create it
@@ -153,7 +140,6 @@ export const signInWithGoogle = async () => {
     const userDoc = await getDoc(userDocRef);
 
     if (!userDoc.exists()) {
-      // Create user document in Firestore for new Google sign-in users
       await setDoc(userDocRef, {
         email: user.email,
         displayName: user.displayName || '',
@@ -161,11 +147,11 @@ export const signInWithGoogle = async () => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         emailVerified: user.emailVerified,
-        role: 'driver', // Default role
+        role: 'driver',
         provider: 'google',
         activeMode: 'private',
         activeOrganizationId: null,
-        organizationIds: [], // Array of organization IDs user is member of
+        organizationIds: [],
         profileComplete: true,
       });
     }

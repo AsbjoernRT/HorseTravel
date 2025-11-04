@@ -3,14 +3,14 @@ import React, { useState, useEffect } from 'react';
 // Guided workflow for planning or logging a transport, including vehicle, horse, and route selection.
 import { View, Text, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator, Pressable, Platform, Modal } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { ChevronRight, MapPin, Clock, Navigation, AlertTriangle } from 'lucide-react-native';
+import { ChevronRight, MapPin, Clock, Navigation, AlertTriangle, Plus, Caravan, X, Truck, Car, CarFront } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
 import { useOrganization } from '../context/OrganizationContext';
 import { useTransport } from '../context/TransportContext';
 import { getVehicles } from '../services/vehicleService';
 import { getHorses } from '../services/horseService';
-import { createTransport, getTransportsByStatus } from '../services/transportService';
-import { sharedStyles, colors } from '../styles/sharedStyles';
+import { createTransport, getTransportsByStatus, updateTransport } from '../services/transportService';
+import { theme, colors } from '../styles/theme';
 import { SCREEN_NAMES, navigateToTab } from '../constants/navigation';
 import { useFocusEffect } from '@react-navigation/native';
 import VehicleSelectionModal from '../components/VehicleSelectionModal';
@@ -19,14 +19,35 @@ import RouteMapModal from '../components/RouteMapModal';
 import LocationAutocomplete from '../components/LocationAutocomplete';
 import { getDirections, getCurrentLocation, reverseGeocode } from '../services/mapsService';
 
-const StartTransportScreen = ({ navigation }) => {
+const StartTransportScreen = ({ navigation, route }) => {
   const { activeMode, activeOrganization, hasPermission } = useOrganization();
   const { activeTransport, startTransport } = useTransport();
+
+  // Edit mode - check if we're editing an existing transport
+  const editTransport = route?.params?.editTransport;
+  const isEditMode = !!editTransport;
+
+  // Get vehicle icon based on type
+  const getVehicleIcon = (type) => {
+    switch (type) {
+      case 'Personbil':
+        return CarFront;
+      case 'Lastbil':
+        return Truck;
+      case 'Varebil':
+        return Car;
+      case 'Påhængsvogn':
+        return Caravan;
+      default:
+        return Truck;
+    }
+  };
 
   // Form state
   const [fromLocation, setFromLocation] = useState('');
   const [toLocation, setToLocation] = useState('');
   const [selectedVehicle, setSelectedVehicle] = useState(null);
+  const [selectedTrailer, setSelectedTrailer] = useState(null);
   const [selectedHorses, setSelectedHorses] = useState([]);
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTime, setSelectedTime] = useState(null);
@@ -42,10 +63,12 @@ const StartTransportScreen = ({ navigation }) => {
 
   // Modal state
   const [showVehicleModal, setShowVehicleModal] = useState(false);
+  const [showTrailerModal, setShowTrailerModal] = useState(false);
   const [showHorseModal, setShowHorseModal] = useState(false);
   const [showRouteMapModal, setShowRouteMapModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [tempDate, setTempDate] = useState(null);
 
   // Route state
   const [routeInfo, setRouteInfo] = useState(null);
@@ -55,6 +78,9 @@ const StartTransportScreen = ({ navigation }) => {
 
   const canCreate = activeMode === 'private' || hasPermission('canManageTours');
 
+  const cancelDateSelection = () => {
+    setShowDatePicker(false);
+  };
 
   const handleDateChange = (event, date) => {
     if (event.type === 'set' && date) {
@@ -74,12 +100,82 @@ const StartTransportScreen = ({ navigation }) => {
     loadData();
   }, [activeMode, activeOrganization]);
 
-  // Refresh data when screen comes into focus (after creating new vehicle/horse)
+  // Reset form and refresh data when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
+      if (!isEditMode) {
+        // Only reset form if NOT in edit mode
+        setFromLocation('');
+        setToLocation('');
+        setSelectedVehicle(null);
+        setSelectedTrailer(null);
+        setSelectedHorses([]);
+        setSelectedDate(null);
+        setSelectedTime(null);
+        setDepartureDate('');
+        setDepartureTime('');
+        setNotes('');
+        setRouteInfo(null);
+      }
+
+      // Load fresh data
       loadData();
-    }, [activeMode, activeOrganization])
+    }, [activeMode, activeOrganization, isEditMode])
   );
+
+  // Load transport data when in edit mode
+  useEffect(() => {
+    if (isEditMode && editTransport && vehicles.length > 0 && horses.length > 0) {
+      // Populate form with existing transport data
+      setFromLocation(editTransport.fromLocation || '');
+      setToLocation(editTransport.toLocation || '');
+      setDepartureDate(editTransport.departureDate || '');
+      setDepartureTime(editTransport.departureTime || '');
+      setNotes(editTransport.notes || '');
+
+      // Find and set vehicle
+      const vehicle = vehicles.find(v => v.id === editTransport.vehicleId);
+      if (vehicle) setSelectedVehicle(vehicle);
+
+      // Find and set trailer
+      if (editTransport.trailerId) {
+        const trailer = vehicles.find(v => v.id === editTransport.trailerId);
+        if (trailer) setSelectedTrailer(trailer);
+      }
+
+      // Find and set horses
+      if (editTransport.horseIds && editTransport.horseIds.length > 0) {
+        const selectedHorsesData = horses.filter(h => editTransport.horseIds.includes(h.id));
+        setSelectedHorses(selectedHorsesData);
+      }
+
+      // Set route info if available
+      if (editTransport.routeInfo) {
+        setRouteInfo(editTransport.routeInfo);
+      }
+
+      // Parse and set dates
+      if (editTransport.departureDate) {
+        try {
+          const date = new Date(editTransport.departureDate);
+          setSelectedDate(date);
+        } catch (e) {
+          console.error('Error parsing date:', e);
+        }
+      }
+
+      if (editTransport.departureTime) {
+        try {
+          const [hours, minutes] = editTransport.departureTime.split(':');
+          const time = new Date();
+          time.setHours(parseInt(hours), parseInt(minutes));
+          setSelectedTime(time);
+        } catch (e) {
+          console.error('Error parsing time:', e);
+        }
+      }
+    }
+  }, [isEditMode, editTransport, vehicles, horses]);
 
   const loadData = async () => {
     try {
@@ -106,14 +202,20 @@ const StartTransportScreen = ({ navigation }) => {
     }
   };
 
-  // Calculate route when both locations are filled
+  // Calculate route when both locations are filled or vehicle/trailer changes
   useEffect(() => {
     const calculateRoute = async () => {
       // Only calculate if both locations are filled and have reasonable length
       if (fromLocation.trim().length > 5 && toLocation.trim().length > 5) {
         setLoadingRoute(true);
         try {
-          const route = await getDirections(fromLocation, toLocation);
+          // Pass vehicle type and trailer status to get adjusted duration
+          const route = await getDirections(
+            fromLocation,
+            toLocation,
+            selectedVehicle?.vehicleType,
+            !!selectedTrailer // hasTrailer
+          );
           setRouteInfo(route);
         } catch (error) {
           console.error('Error calculating route:', error);
@@ -129,7 +231,7 @@ const StartTransportScreen = ({ navigation }) => {
     // Debounce route calculation
     const timeoutId = setTimeout(calculateRoute, 1000);
     return () => clearTimeout(timeoutId);
-  }, [fromLocation, toLocation]);
+  }, [fromLocation, toLocation, selectedVehicle?.vehicleType, selectedTrailer]);
 
   const handleUseCurrentLocation = async () => {
     try {
@@ -145,6 +247,11 @@ const StartTransportScreen = ({ navigation }) => {
   };
 
   const getButtonText = () => {
+    // If in edit mode, always show "Gem Ændringer"
+    if (isEditMode) {
+      return 'Gem Ændringer';
+    }
+
     // If no date or time chosen, use "Start Transport"
     if (!departureDate && !departureTime) {
       return 'Start Transport';
@@ -201,6 +308,13 @@ const StartTransportScreen = ({ navigation }) => {
     // Determine status based on date/time
     const buttonText = getButtonText();
     let transportStatus = 'planned';
+
+    // In edit mode, keep the existing status
+    if (isEditMode) {
+      transportStatus = editTransport.status;
+      proceedWithCreation(transportStatus);
+      return;
+    }
 
     if (buttonText === 'Start Transport') {
       // Check if there's already an active transport in database
@@ -261,6 +375,8 @@ const StartTransportScreen = ({ navigation }) => {
         toLocation: toLocation.trim(),
         vehicleId: selectedVehicle.id,
         vehicleName: `${selectedVehicle.make} ${selectedVehicle.model} (${selectedVehicle.licensePlate})`,
+        trailerId: selectedTrailer?.id || null,
+        trailerName: selectedTrailer ? `${selectedTrailer.make} ${selectedTrailer.model} (${selectedTrailer.licensePlate})` : null,
         horseIds: selectedHorses.map(h => h.id),
         horseNames: selectedHorses.map(h => h.name),
         horseCount: selectedHorses.length,
@@ -280,23 +396,41 @@ const StartTransportScreen = ({ navigation }) => {
         } : null,
       };
 
-      const createdTransport = await createTransport(transportData, activeMode, activeOrganization?.id);
+      let result;
+      if (isEditMode) {
+        // Update existing transport
+        await updateTransport(editTransport.id, transportData);
+        result = { id: editTransport.id, ...transportData };
+      } else {
+        // Create new transport
+        result = await createTransport(transportData, activeMode, activeOrganization?.id);
+      }
 
       // If status is active, update TransportContext
       if (status === 'active') {
-        startTransport(createdTransport);
+        startTransport(result);
       }
 
       // Show success toast
       Toast.show({
         type: 'success',
         text1: 'Succes!',
-        text2: status === 'active' ? 'Transport startet' : status === 'completed' ? 'Transport logget' : 'Transport planlagt',
+        text2: isEditMode
+          ? 'Transport opdateret'
+          : status === 'active'
+            ? 'Transport startet'
+            : status === 'completed'
+              ? 'Transport logget'
+              : 'Transport planlagt',
       });
 
-      // Navigate to home
+      // Navigate back or to home
       setTimeout(() => {
-        navigation.navigate('MainTabs', { screen: 'Home' });
+        if (isEditMode) {
+          navigation.goBack();
+        } else {
+          navigation.navigate('MainTabs', { screen: 'Home' });
+        }
       }, 1000);
     } catch (error) {
       console.error('Error creating transport:', error);
@@ -312,15 +446,15 @@ const StartTransportScreen = ({ navigation }) => {
 
   if (!canCreate) {
     return (
-      <View style={[sharedStyles.container, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+      <View style={[theme.container, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
         <Text style={{ fontSize: 16, color: colors.secondary, textAlign: 'center' }}>
           Du har ikke tilladelse til at oprette transporter i denne organisation.
         </Text>
         <TouchableOpacity
-          style={[sharedStyles.primaryButton, { marginTop: 20 }]}
+          style={[theme.primaryButton, { marginTop: 20 }]}
           onPress={() => navigation.goBack()}
         >
-          <Text style={sharedStyles.primaryButtonText}>Tilbage</Text>
+          <Text style={theme.primaryButtonText}>Tilbage</Text>
         </TouchableOpacity>
       </View>
     );
@@ -328,7 +462,7 @@ const StartTransportScreen = ({ navigation }) => {
 
   if (loading) {
     return (
-      <View style={[sharedStyles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <View style={[theme.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color={colors.secondary} />
       </View>
     );
@@ -337,15 +471,15 @@ const StartTransportScreen = ({ navigation }) => {
   return (
     <View style={{ flex: 1, backgroundColor: colors.secondary }}>
       <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 400, flexGrow: 1 }}
+        contentContainerStyle={{ padding: 16, paddingTop: 60, paddingBottom: 400, flexGrow: 1 }}
         showsVerticalScrollIndicator={true}
         keyboardShouldPersistTaps="handled"
         scrollEnabled={true}
       >
         {/* Header */}
-        <View style={{ marginBottom: 20, marginTop: 10 }}>
+        <View style={{ marginBottom: 16 }}>
           <Text style={{ fontSize: 24, fontWeight: 'bold', color: colors.primary }}>
-            Start Ny Transport
+            {isEditMode ? 'Rediger Transport' : 'Start Ny Transport'}
           </Text>
           <Text style={{ fontSize: 14, color: '#666', marginTop: 4 }}>
             {activeMode === 'private' ? 'Privat transport' : `${activeOrganization?.name}`}
@@ -471,6 +605,27 @@ const StartTransportScreen = ({ navigation }) => {
                 </Text>
               </View>
             </View>}
+
+            {routeExpanded && routeInfo.duration.isAdjusted && (
+              <View style={{
+                backgroundColor: '#e3f2fd',
+                padding: 8,
+                borderRadius: 6,
+                marginTop: 8,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+              }}>
+                <Clock size={14} color="#1976d2" />
+                <Text style={{ fontSize: 12, color: '#1976d2', flex: 1 }}>
+                  {selectedVehicle?.vehicleType === 'Lastbil'
+                    ? 'Tid justeret for lastbil (max 90 km/t)'
+                    : selectedTrailer
+                    ? 'Tid justeret for køretøj med trailer (max 90 km/t)'
+                    : 'Tid justeret (max 90 km/t)'}
+                </Text>
+              </View>
+            )}
 
             {routeExpanded && routeInfo.trafficDelay.value > 300 && (
               <View style={{
@@ -766,45 +921,125 @@ const StartTransportScreen = ({ navigation }) => {
           </Modal>
         )}
 
-        {/* Vehicle Selection */}
+        {/* Vehicle Selection with Trailer Badge */}
         <View style={{ marginBottom: 20 }}>
           <Text style={{ fontSize: 14, fontWeight: '600', color: colors.primary, marginBottom: 8 }}>
             Køretøj *
           </Text>
-          <Pressable
-            style={{
-              backgroundColor: colors.white,
-              padding: 16,
-              borderRadius: 8,
-              borderWidth: 1,
-              borderColor: selectedVehicle ? colors.primary : '#ccc',
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-            onPress={() => setShowVehicleModal(true)}
-          >
-            {selectedVehicle ? (
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.primary }}>
-                  {selectedVehicle.licensePlate}
+          <View style={{ position: 'relative' }}>
+            <Pressable
+              style={{
+                backgroundColor: colors.white,
+                padding: 16,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: selectedVehicle ? colors.primary : '#ccc',
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+              onPress={() => setShowVehicleModal(true)}
+            >
+              {selectedVehicle ? (
+                <>
+                  {/* Vehicle Icon */}
+                  <View style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 22,
+                    backgroundColor: colors.secondary,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    marginRight: 12,
+                  }}>
+                    {React.createElement(getVehicleIcon(selectedVehicle.vehicleType), {
+                      size: 22,
+                      color: colors.primary,
+                      strokeWidth: 2
+                    })}
+                  </View>
+
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.primary }}>
+                      {selectedVehicle.licensePlate}
+                    </Text>
+                    <Text style={{ fontSize: 14, color: '#666', marginTop: 2 }}>
+                      {selectedVehicle.make} {selectedVehicle.model}
+                    </Text>
+                    {selectedVehicle.capacity && (
+                      <Text style={{ fontSize: 12, color: '#999', marginTop: 2 }}>
+                        Kapacitet: {selectedVehicle.capacity} heste
+                      </Text>
+                    )}
+                  </View>
+                </>
+              ) : (
+                <Text style={{ fontSize: 16, color: '#999' }}>
+                  Vælg køretøj...
                 </Text>
-                <Text style={{ fontSize: 14, color: '#666', marginTop: 2 }}>
-                  {selectedVehicle.make} {selectedVehicle.model}
-                </Text>
-                {selectedVehicle.capacity && (
-                  <Text style={{ fontSize: 12, color: '#999', marginTop: 2 }}>
-                    Kapacitet: {selectedVehicle.capacity} heste
+              )}
+              <ChevronRight size={20} color={colors.primary} />
+            </Pressable>
+
+            {/* Trailer Badge - shown when trailer is selected */}
+            {selectedTrailer && (
+              <View
+                style={{
+                  position: 'absolute',
+                  top: -10,
+                  right: -10,
+                  backgroundColor: colors.primary,
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 20,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 4,
+                  elevation: 5,
+                }}
+              >
+                <Pressable onPress={() => setShowTrailerModal(true)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Caravan size={16} color={colors.white} strokeWidth={2} />
+                  <Text style={{ color: colors.white, fontSize: 12, fontWeight: '600' }}>
+                    {selectedTrailer.licensePlate}
                   </Text>
-                )}
+                </Pressable>
+                <TouchableOpacity onPress={() => setSelectedTrailer(null)} style={{ marginLeft: 4 }}>
+                  <X size={16} color={colors.white} strokeWidth={2.5} />
+                </TouchableOpacity>
               </View>
-            ) : (
-              <Text style={{ fontSize: 16, color: '#999' }}>
-                Vælg køretøj...
-              </Text>
             )}
-            <ChevronRight size={20} color={colors.primary} />
-          </Pressable>
+          </View>
+
+          {/* Add Trailer Button - shown when vehicle is selected */}
+          {selectedVehicle && !selectedTrailer && (
+            <TouchableOpacity
+              style={{
+                marginTop: 12,
+                backgroundColor: colors.secondary,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                borderRadius: 8,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                borderWidth: 1,
+                borderColor: colors.border,
+              }}
+              onPress={() => setShowTrailerModal(true)}
+            >
+              <Caravan size={20} color={colors.primary} strokeWidth={2} />
+              <Plus size={20} color={colors.primary} strokeWidth={2.5} />
+              <Text style={{ fontSize: 14, fontWeight: '600', color: colors.primary }}>
+                Tilføj trailer
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Horse Selection */}
@@ -892,6 +1127,21 @@ const StartTransportScreen = ({ navigation }) => {
           setShowVehicleModal(false);
           navigateToTab(navigation, SCREEN_NAMES.VEHICLE_MANAGEMENT);
         }}
+        isTrailerSelection={false}
+      />
+
+      {/* Trailer Selection Modal */}
+      <VehicleSelectionModal
+        visible={showTrailerModal}
+        vehicles={vehicles}
+        selectedVehicle={selectedTrailer}
+        onSelect={setSelectedTrailer}
+        onClose={() => setShowTrailerModal(false)}
+        onManageVehicles={() => {
+          setShowTrailerModal(false);
+          navigateToTab(navigation, SCREEN_NAMES.VEHICLE_MANAGEMENT);
+        }}
+        isTrailerSelection={true}
       />
 
       {/* Horse Selection Modal */}

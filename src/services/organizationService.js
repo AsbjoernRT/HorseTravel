@@ -128,10 +128,15 @@ export const getUserOrganizations = async () => {
       // Get member info for each organization
       for (const orgDoc of orgsSnapshot.docs) {
         const memberDoc = await getDoc(doc(db, 'organizations', orgDoc.id, 'members', user.uid));
+
+        // Get member count
+        const membersSnapshot = await getDocs(collection(db, 'organizations', orgDoc.id, 'members'));
+
         organizations.push({
           id: orgDoc.id,
           ...orgDoc.data(),
           memberInfo: memberDoc.exists() ? memberDoc.data() : null,
+          memberCount: membersSnapshot.size,
         });
       }
     }
@@ -363,22 +368,34 @@ export const joinOrganizationByCode = async (organizationCode) => {
     const organizationId = orgDoc.id;
 
     // Check if user is already a member
-    const memberDoc = await getDoc(doc(db, 'organizations', organizationId, 'members', user.uid));
-    if (memberDoc.exists()) {
-      throw new Error('Du er allerede medlem af denne organisation');
+    try {
+      const memberDoc = await getDoc(doc(db, 'organizations', organizationId, 'members', user.uid));
+      if (memberDoc.exists()) {
+        throw new Error('Du er allerede medlem af denne organisation');
+      }
+    } catch (error) {
+      // If permission denied, user is not a member yet - continue
+      if (error.code !== 'permission-denied' && error.code !== 'PERMISSION_DENIED') {
+        throw error;
+      }
     }
 
     // Add user as member
-    await setDoc(doc(db, 'organizations', organizationId, 'members', user.uid), {
-      userId: user.uid,
-      email: user.email,
-      displayName: user.displayName || 'Unknown',
-      role: 'member',
-      permissions: getDefaultPermissions('member'),
-      status: 'active',
-      joinedAt: serverTimestamp(),
-      invitedBy: user.uid, // Self-joined via code
-    });
+    try {
+      await setDoc(doc(db, 'organizations', organizationId, 'members', user.uid), {
+        userId: user.uid,
+        email: user.email,
+        displayName: user.displayName || 'Unknown',
+        role: 'member',
+        permissions: getDefaultPermissions('member'),
+        status: 'active',
+        joinedAt: serverTimestamp(),
+        invitedBy: user.uid, // Self-joined via code
+      });
+    } catch (error) {
+      console.error('Error creating member document:', error);
+      throw new Error(`Kunne ikke tilføje medlem: ${error.message}`);
+    }
 
     // Update user's active organization if they don't have one, and add to organizationIds
     const userDoc = await getDoc(doc(db, 'users', user.uid));
@@ -395,7 +412,12 @@ export const joinOrganizationByCode = async (organizationCode) => {
       updates.activeOrganizationId = organizationId;
     }
 
-    await updateDoc(doc(db, 'users', user.uid), updates);
+    try {
+      await updateDoc(doc(db, 'users', user.uid), updates);
+    } catch (error) {
+      console.error('Error updating user document:', error);
+      throw new Error(`Kunne ikke opdatere bruger: ${error.message}`);
+    }
 
     return { organizationId, organization: { id: orgDoc.id, ...orgDoc.data() } };
   } catch (error) {

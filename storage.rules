@@ -1,0 +1,85 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user owns the resource
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Helper function to check if file is an image
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    // Helper function to check if file is a PDF
+    function isPDF() {
+      return request.resource.contentType == 'application/pdf';
+    }
+
+    // Helper function to check if file size is within limit (10MB)
+    function isValidSize() {
+      return request.resource.size < 10 * 1024 * 1024;
+    }
+
+    // Helper function to check if user is member of organization
+    function isOrganizationMember(orgId) {
+      return isAuthenticated() &&
+        exists(/databases/(default)/documents/organizations/$(orgId)/members/$(request.auth.uid));
+    }
+
+    // Helper function to check if user has admin/owner role in organization
+    function isOrganizationAdmin(orgId) {
+      return isAuthenticated() &&
+        get(/databases/(default)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.role in ['owner', 'admin'];
+    }
+
+    // Helper function to check if user can manage organization vehicles
+    function canManageOrgVehicles(orgId) {
+      let member = get(/databases/(default)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data;
+      return member.role in ['owner', 'admin'] ||
+        (member.role == 'member' && member.permissions.canManageVehicles == true);
+    }
+
+    // Organization certificates - only members can read, admin/owner can write
+    match /certificates/organization/{orgId}/{fileName} {
+      allow read: if isOrganizationMember(orgId);
+      allow write, delete: if isOrganizationAdmin(orgId) &&
+                              (isImage() || isPDF()) &&
+                              isValidSize();
+    }
+
+    // Vehicle certificates
+    match /certificates/vehicle/{vehicleId}/{fileName} {
+      allow read: if isAuthenticated() && (
+        // Allow if vehicle is private and owned by user
+        get(/databases/(default)/documents/vehicles/$(vehicleId)).data.ownerId == request.auth.uid ||
+        // Allow if vehicle belongs to organization and user is member
+        (exists(/databases/(default)/documents/vehicles/$(vehicleId)) &&
+         get(/databases/(default)/documents/vehicles/$(vehicleId)).data.organizationId != null &&
+         isOrganizationMember(get(/databases/(default)/documents/vehicles/$(vehicleId)).data.organizationId))
+      );
+
+      allow write, delete: if isAuthenticated() &&
+                              (isImage() || isPDF()) &&
+                              isValidSize() &&
+                              (
+                                // Allow if vehicle is private and owned by user
+                                get(/databases/(default)/documents/vehicles/$(vehicleId)).data.ownerId == request.auth.uid ||
+                                // Allow if user can manage organization vehicles
+                                (exists(/databases/(default)/documents/vehicles/$(vehicleId)) &&
+                                 get(/databases/(default)/documents/vehicles/$(vehicleId)).data.organizationId != null &&
+                                 canManageOrgVehicles(get(/databases/(default)/documents/vehicles/$(vehicleId)).data.organizationId))
+                              );
+    }
+
+    // Default deny all other paths
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

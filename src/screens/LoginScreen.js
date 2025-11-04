@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Image, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Phone } from 'lucide-react-native';
 import { signIn, signInWithGoogle } from '../services/authService';
-import { sharedStyles } from '../styles/sharedStyles';
+import { theme } from '../styles/theme';
 import { loginStyles } from '../styles/loginStyles';
 
 // Primary email/password entry point with optional Google sign-in fallback.
@@ -40,30 +40,30 @@ const LoginScreen = ({ navigation }) => {
 
   return (
     <KeyboardAvoidingView
-      style={sharedStyles.container}
+      style={theme.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView
-        contentContainerStyle={sharedStyles.scrollContent}
+        contentContainerStyle={theme.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {/* Logo Section */}
-        <View style={sharedStyles.logoContainer}>
+        <View style={theme.logoContainer}>
           <Image
-            source={require('../assets/images/hvid-logo.png')}
-            style={sharedStyles.logo}
+            source={require('../assets/images/gron-logo.png')}
+            style={theme.logo}
             resizeMode="contain"
           />
-          <Text style={sharedStyles.welcomeText}>Velkommen tilbage</Text>
-          <Text style={sharedStyles.subtitleText}>Log ind for at fortsætte</Text>
+          <Text style={theme.welcomeText}>Velkommen tilbage</Text>
+          <Text style={theme.subtitleText}>Log ind for at fortsætte</Text>
         </View>
 
         {/* Input Section */}
-        <View style={sharedStyles.formContainer}>
-          <View style={sharedStyles.inputWrapper}>
-            <Text style={sharedStyles.inputLabel}>Email</Text>
+        <View style={theme.formContainer}>
+          <View style={theme.inputWrapper}>
+            <Text style={theme.inputLabel}>Email</Text>
             <TextInput
-              style={sharedStyles.input}
+              style={theme.input}
               placeholder="din@email.dk"
               placeholderTextColor="#999"
               value={email}
@@ -74,10 +74,10 @@ const LoginScreen = ({ navigation }) => {
             />
           </View>
 
-          <View style={sharedStyles.inputWrapper}>
-            <Text style={sharedStyles.inputLabel}>Adgangskode</Text>
+          <View style={theme.inputWrapper}>
+            <Text style={theme.inputLabel}>Adgangskode</Text>
             <TextInput
-              style={sharedStyles.input}
+              style={theme.input}
               placeholder="••••••••"
               placeholderTextColor="#999"
               value={password}
@@ -96,63 +96,55 @@ const LoginScreen = ({ navigation }) => {
 
           {/* Login Button */}
           <TouchableOpacity
-            style={[sharedStyles.primaryButton, loading && sharedStyles.buttonDisabled]}
+            style={[theme.primaryButton, loading && theme.buttonDisabled]}
             onPress={handleLogin}
             disabled={loading}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={sharedStyles.primaryButtonText}>Log ind</Text>
+              <Text style={theme.primaryButtonText}>Log ind</Text>
             )}
           </TouchableOpacity>
 
-          {/* Social Login Buttons - Hidden on mobile */}
+          {/* Social Login - Web Only */}
           {Platform.OS === 'web' && (
             <>
-              {/* Divider */}
-              <View style={sharedStyles.dividerContainer}>
-                <View style={sharedStyles.dividerLine} />
-                <Text style={sharedStyles.dividerText}>eller fortsæt med</Text>
-                <View style={sharedStyles.dividerLine} />
-              </View>
+              {/* Google Sign-In Button */}
+              <TouchableOpacity
+                style={[theme.socialButton, { width: '100%', marginBottom: 12 }]}
+                onPress={handleGoogleSignIn}
+                disabled={loading}
+              >
+                <Image
+                  source={require('../assets/icons/google-icon.webp')}
+                  style={theme.socialButtonIcon}
+                  resizeMode="contain"
+                />
+                <Text style={theme.socialButtonText}>Fortsæt med Google</Text>
+              </TouchableOpacity>
 
-              {/* Social Login Buttons */}
-              <View style={sharedStyles.socialButtonsContainer}>
-                <TouchableOpacity
-                  style={sharedStyles.socialButton}
-                  onPress={handleGoogleSignIn}
-                  disabled={loading}
-                >
-                  <Image
-                    source={require('../assets/icons/google-icon.webp')}
-                    style={sharedStyles.socialButtonIcon}
-                    resizeMode="contain"
-                  />
-                  <Text style={sharedStyles.socialButtonText}>Google</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={sharedStyles.socialButton}
-                  onPress={() => navigation.navigate('PhoneLogin')}
-                  disabled={loading}
-                >
-                  <Phone size={20} color="#002300" strokeWidth={2.5} />
-                  <Text style={sharedStyles.socialButtonText}>Telefon</Text>
-                </TouchableOpacity>
-              </View>
+              {/* Phone Login */}
+              <TouchableOpacity
+                style={[theme.socialButton, { width: '100%', marginBottom: 24 }]}
+                onPress={() => navigation.navigate('PhoneLogin')}
+                disabled={loading}
+              >
+                <Phone size={20} color="#002300" strokeWidth={2.5} />
+                <Text style={theme.socialButtonText}>Fortsæt med Telefon</Text>
+              </TouchableOpacity>
             </>
           )}
         </View>
 
         {/* Footer */}
-        <View style={[sharedStyles.footer, { flexDirection: 'column', gap: 8 }]}>
-          <Text style={sharedStyles.footerText}>Ny bruger?</Text>
+        <View style={[theme.footer, { flexDirection: 'column', gap: 8 }]}>
+          <Text style={theme.footerText}>Ny bruger?</Text>
           <TouchableOpacity
             onPress={() => navigation.navigate('Signup')}
             disabled={loading}
           >
-            <Text style={[sharedStyles.footerLink, { color: '#202020' }]}>Ny bruger? Kom i gang her</Text>
+            <Text style={[theme.footerLink, { color: '#202020' }]}>Ny bruger? Kom i gang her</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, FlatList, Alert, ActivityIndicator, ScrollView } from 'react-native';
-import { MapPin, Calendar, Plus, Edit2, Trash2, Clock } from 'lucide-react-native';
+import { MapPin, Calendar, Plus, Edit2, Trash2, Clock, Caravan } from 'lucide-react-native';
 import { useOrganization } from '../context/OrganizationContext';
 import { getTransports, deleteTransport } from '../services/transportService';
-import { sharedStyles, colors } from '../styles/sharedStyles';
+import { theme, colors } from '../styles/theme';
 
 // Lists historic and planned transports with filtering and management actions.
 const TransportListScreen = ({ navigation }) => {
@@ -128,9 +128,20 @@ const TransportListScreen = ({ navigation }) => {
             </Text>
           </View>
 
-          <Text style={{ fontSize: 14, color: '#999', marginBottom: 4 }}>
-            {item.vehicleName}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <Text style={{ fontSize: 14, color: '#999' }}>
+              {item.vehicleName}
+            </Text>
+            {item.trailerId && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Text style={{ fontSize: 12, color: '#999' }}>+</Text>
+                <Caravan size={14} color={colors.primary} strokeWidth={2} />
+                <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '600' }}>
+                  Trailer
+                </Text>
+              </View>
+            )}
+          </View>
 
           {(item.distance || item.durationText || item.routeInfo) && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
@@ -195,14 +206,14 @@ const TransportListScreen = ({ navigation }) => {
 
   if (loading) {
     return (
-      <View style={[sharedStyles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <View style={[theme.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color={colors.secondary} />
       </View>
     );
   }
 
   return (
-    <View style={sharedStyles.container}>
+    <View style={theme.container}>
       <ScrollView style={{ flex: 1, padding: 16 }}>
         {/* Header */}
         <View style={{ marginBottom: 20 }}>

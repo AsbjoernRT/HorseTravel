@@ -100,6 +100,49 @@ export const getVehicles = async (mode = 'private', organizationId = null) => {
   }
 };
 
+// Search for vehicle by license plate in database
+export const getVehicleByLicensePlate = async (licensePlate, mode = 'private', organizationId = null) => {
+  try {
+    const user = auth.currentUser;
+    if (!user) throw new Error('Du skal være logget ind');
+
+    // Normalize license plate (remove spaces, uppercase)
+    const normalizedPlate = licensePlate.replace(/\s+/g, '').toUpperCase();
+
+    let q;
+    if (mode === 'private') {
+      q = query(
+        collection(db, 'vehicles'),
+        where('ownerId', '==', user.uid),
+        where('ownerType', '==', 'private'),
+        where('licensePlate', '==', normalizedPlate)
+      );
+    } else if (mode === 'organization' && organizationId) {
+      q = query(
+        collection(db, 'vehicles'),
+        where('organizationId', '==', organizationId),
+        where('ownerType', '==', 'organization'),
+        where('licensePlate', '==', normalizedPlate)
+      );
+    } else {
+      throw new Error('Invalid mode or missing organizationId');
+    }
+
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      return null; // No vehicle found
+    }
+
+    // Return first match
+    const doc = snapshot.docs[0];
+    return { id: doc.id, ...doc.data() };
+  } catch (error) {
+    console.error('Error searching vehicle by license plate:', error);
+    throw error;
+  }
+};
+
 // Update vehicle
 export const updateVehicle = async (vehicleId, updates) => {
   try {

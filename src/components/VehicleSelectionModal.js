@@ -1,22 +1,34 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, Modal, TextInput, FlatList, TouchableOpacity, Pressable } from 'react-native';
-import { X, Search, Truck } from 'lucide-react-native';
-import { colors } from '../styles/sharedStyles';
+import { X, Search, Truck, Car, CarFront, Caravan } from 'lucide-react-native';
+import { colors } from '../styles/theme';
 
 // Modal picker that surfaces the vehicle list with search, filtering, and management shortcuts.
-const VehicleSelectionModal = ({ visible, vehicles, selectedVehicle, onSelect, onClose, onManageVehicles }) => {
+const VehicleSelectionModal = ({ visible, vehicles, selectedVehicle, onSelect, onClose, onManageVehicles, isTrailerSelection = false }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredVehicles = useMemo(() => {
-    if (!searchQuery.trim()) return vehicles;
+    let filtered = vehicles;
+
+    // Filter by trailer selection mode
+    if (isTrailerSelection) {
+      // Only show trailers
+      filtered = filtered.filter(vehicle => vehicle.vehicleType === 'Påhængsvogn');
+    } else {
+      // Exclude trailers for primary vehicle selection
+      filtered = filtered.filter(vehicle => vehicle.vehicleType !== 'Påhængsvogn');
+    }
+
+    // Apply search filter
+    if (!searchQuery.trim()) return filtered;
 
     const query = searchQuery.toLowerCase();
-    return vehicles.filter(vehicle =>
+    return filtered.filter(vehicle =>
       vehicle.licensePlate.toLowerCase().includes(query) ||
       vehicle.make.toLowerCase().includes(query) ||
       vehicle.model.toLowerCase().includes(query)
     );
-  }, [vehicles, searchQuery]);
+  }, [vehicles, searchQuery, isTrailerSelection]);
 
   const handleSelect = (vehicle) => {
     onSelect(vehicle);
@@ -24,8 +36,24 @@ const VehicleSelectionModal = ({ visible, vehicles, selectedVehicle, onSelect, o
     onClose();
   };
 
+  const getVehicleIcon = (type) => {
+    switch (type) {
+      case 'Personbil':
+        return CarFront;
+      case 'Lastbil':
+        return Truck;
+      case 'Varebil':
+        return Car;
+      case 'Påhængsvogn':
+        return Caravan;
+      default:
+        return Truck;
+    }
+  };
+
   const renderVehicle = ({ item }) => {
     const isSelected = selectedVehicle?.id === item.id;
+    const VehicleIcon = getVehicleIcon(item.vehicleType);
 
     return (
       <Pressable
@@ -36,20 +64,37 @@ const VehicleSelectionModal = ({ visible, vehicles, selectedVehicle, onSelect, o
           borderRadius: 8,
           borderWidth: isSelected ? 2 : 1,
           borderColor: isSelected ? colors.primary : '#e0e0e0',
+          flexDirection: 'row',
+          alignItems: 'center',
         }}
         onPress={() => handleSelect(item)}
       >
-        <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.primary }}>
-          {item.licensePlate}
-        </Text>
-        <Text style={{ fontSize: 14, color: '#666', marginTop: 4 }}>
-          {item.make} {item.model}
-        </Text>
-        {item.capacity && (
-          <Text style={{ fontSize: 12, color: '#999', marginTop: 2 }}>
-            Kapacitet: {item.capacity} heste
+        {/* Icon */}
+        <View style={{
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          backgroundColor: colors.secondary,
+          justifyContent: 'center',
+          alignItems: 'center',
+          marginRight: 12,
+        }}>
+          <VehicleIcon size={22} color={colors.primary} strokeWidth={2} />
+        </View>
+
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.primary }}>
+            {item.licensePlate}
           </Text>
-        )}
+          <Text style={{ fontSize: 14, color: '#666', marginTop: 4 }}>
+            {item.make} {item.model}
+          </Text>
+          {item.capacity && (
+            <Text style={{ fontSize: 12, color: '#999', marginTop: 2 }}>
+              Kapacitet: {item.capacity} heste
+            </Text>
+          )}
+        </View>
       </Pressable>
     );
   };
@@ -82,7 +127,7 @@ const VehicleSelectionModal = ({ visible, vehicles, selectedVehicle, onSelect, o
             paddingBottom: 16,
           }}>
             <Text style={{ fontSize: 20, fontWeight: 'bold', color: colors.primary }}>
-              Vælg køretøj
+              {isTrailerSelection ? 'Vælg trailer' : 'Vælg køretøj'}
             </Text>
             <Pressable onPress={onClose}>
               <X size={24} color={colors.primary} />

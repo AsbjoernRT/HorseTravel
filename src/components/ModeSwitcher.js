@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, Modal, FlatList, ActivityIndicator } from
 import { ChevronDown, Building2, User, Settings } from 'lucide-react-native';
 import { useOrganization } from '../context/OrganizationContext';
 import { useNavigation } from '@react-navigation/native';
-import { sharedStyles, colors } from '../styles/sharedStyles';
+import { theme, colors } from '../styles/theme';
 
 // Control that lets the user jump between private mode and any joined organizations...
 const ModeSwitcher = () => {
@@ -77,7 +77,7 @@ const ModeSwitcher = () => {
               navigation.navigate('OrganizationDetails', { organizationId: activeOrganization.id });
             }}
           >
-            <Settings size={18} color={colors.primary} strokeWidth={2.5} />
+            {/* <Settings size={18} color={colors.primary} strokeWidth={2.5} /> */}
           </TouchableOpacity>
         )}
       </View>

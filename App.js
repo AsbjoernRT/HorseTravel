@@ -5,7 +5,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View, TouchableOpacity, Text } from 'react-native';
-import { Home, Truck, Heart, Building2, Map } from 'lucide-react-native';
+import { Home, Truck, Heart, Building2, Map, Menu, PlusCircle, MessageCircle } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
 
 // Context Providers
@@ -32,6 +32,8 @@ import HorseManagementScreen from './src/screens/HorseManagementScreen';
 import TransportListScreen from './src/screens/TransportListScreen';
 import StartTransportScreen from './src/screens/StartTransportScreen';
 import TransportDetailsScreen from './src/screens/TransportDetailsScreen';
+import MenuScreen from './src/screens/MenuScreen';
+import ChatbotScreen from './src/screens/ChatbotScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -89,30 +91,39 @@ const MainTabs = () => (
       }}
     />
     <Tab.Screen
-      name="VehicleManagement"
-      component={VehicleManagementScreen}
+      name="Chatbot"
+      component={ChatbotScreen}
       options={{
-        title: 'Køretøjer',
-        tabBarLabel: 'Køretøjer',
-        tabBarIcon: ({ color, size }) => <Truck size={size} color={color} />,
+        title: 'Spørgsmål',
+        tabBarLabel: 'Spørgsmål',
+        tabBarIcon: ({ color, size }) => <MessageCircle size={size} color={color} />,
       }}
     />
     <Tab.Screen
-      name="HorseManagement"
-      component={HorseManagementScreen}
+      name="StartTransport"
+      component={StartTransportScreen}
       options={{
-        title: 'Heste',
-        tabBarLabel: 'Heste',
-        tabBarIcon: ({ color, size }) => <Heart size={size} color={color} />,
+        title: 'Ny',
+        tabBarLabel: 'Ny',
+        tabBarIcon: ({ color, size }) => <PlusCircle size={size} color={color} />,
       }}
     />
     <Tab.Screen
       name="TransportList"
       component={TransportListScreen}
       options={{
-        title: 'Transporter',
-        tabBarLabel: 'Transporter',
+        title: 'Historik',
+        tabBarLabel: 'Historik',
         tabBarIcon: ({ color, size }) => <Map size={size} color={color} />,
+      }}
+    />
+    <Tab.Screen
+      name="UserMenu"
+      component={MenuScreen}
+      options={{
+        title: 'Menu',
+        tabBarLabel: 'Menu',
+        tabBarIcon: ({ color, size }) => <Menu size={size} color={color} />,
       }}
     />
   </Tab.Navigator>
@@ -143,13 +154,13 @@ const MainStack = () => (
               backgroundColor: '#ffffff',
               borderBottomWidth: 1,
               borderBottomColor: '#e0e0e0',
-              paddingTop: 50,
-              paddingBottom: 15,
+              paddingTop: 55,
+              paddingBottom: 8,
               paddingHorizontal: 16,
             }}>
               {props.back && (
                 <TouchableOpacity onPress={props.navigation.goBack}>
-                  <Text style={{ color: '#002300', fontSize: 16 }}>← Back</Text>
+                  <Text style={{ color: '#002300', fontSize: 16 }}>← Tilbage</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -162,6 +173,16 @@ const MainStack = () => (
       name="MainTabs"
       component={MainTabs}
       options={{ headerShown: false }}
+    />
+    <Stack.Screen
+      name="VehicleManagement"
+      component={VehicleManagementScreen}
+      options={{ title: 'Køretøjer' }}
+    />
+    <Stack.Screen
+      name="HorseManagement"
+      component={HorseManagementScreen}
+      options={{ title: 'Heste' }}
     />
     <Stack.Screen
       name="OrganizationSetup"

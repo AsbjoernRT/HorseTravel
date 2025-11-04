@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { Pencil, Trash2 } from 'lucide-react-native';
-import { colors } from '../styles/sharedStyles';
+import { colors } from '../styles/theme';
 
 // Vehicle summary card with selection highlight and edit/delete affordances.
 const VehicleCard = ({ vehicle, isSelected, onSelect, onEdit, onDelete }) => {

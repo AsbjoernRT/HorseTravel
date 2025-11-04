@@ -85,8 +85,12 @@ export const reverseGeocode = async (latitude, longitude) => {
 /**
  * Get route information between two locations using Routes API
  * Includes: distance, duration, border crossings, traffic, and route polyline
+ * @param {string|object} origin - Origin address or coordinates
+ * @param {string|object} destination - Destination address or coordinates
+ * @param {string} vehicleType - Vehicle type (optional): 'Lastbil', 'Personbil', 'Varebil', 'Påhængsvogn'
+ * @param {boolean} hasTrailer - Whether a trailer is attached (optional)
  */
-export const getDirections = async (origin, destination) => {
+export const getDirections = async (origin, destination, vehicleType = null, hasTrailer = false) => {
   try {
     // Prepare origin and destination
     const originData = typeof origin === 'string'
@@ -145,6 +149,19 @@ export const getDirections = async (origin, destination) => {
     const durationSeconds = parseInt(route.duration.replace('s', ''));
     const staticDurationSeconds = parseInt(route.staticDuration.replace('s', ''));
 
+    // Adjust duration for truck/trailer speed limit (90 km/h vs typical 110-130 km/h)
+    // Speed limit is 90 km/h when:
+    // - Driving a truck (Lastbil)
+    // - Towing a trailer (any vehicle + Påhængsvogn)
+    const needsSpeedAdjustment = vehicleType === 'Lastbil' || hasTrailer;
+    const adjustedDurationSeconds = needsSpeedAdjustment
+      ? Math.round(durationSeconds * 1.25) // 25% longer for trucks/trailers
+      : durationSeconds;
+
+    const adjustedStaticDurationSeconds = needsSpeedAdjustment
+      ? Math.round(staticDurationSeconds * 1.25)
+      : staticDurationSeconds;
+
     // Format duration as text
     const formatDuration = (seconds) => {
       const hours = Math.floor(seconds / 3600);
@@ -162,17 +179,18 @@ export const getDirections = async (origin, destination) => {
         km: (route.distanceMeters / 1000).toFixed(1)
       },
       duration: {
-        text: formatDuration(durationSeconds),
-        value: durationSeconds, // in seconds
-        withTraffic: true
+        text: formatDuration(adjustedDurationSeconds),
+        value: adjustedDurationSeconds, // in seconds (adjusted for vehicle type)
+        withTraffic: true,
+        isAdjusted: needsSpeedAdjustment
       },
       durationWithoutTraffic: {
-        text: formatDuration(staticDurationSeconds),
-        value: staticDurationSeconds
+        text: formatDuration(adjustedStaticDurationSeconds),
+        value: adjustedStaticDurationSeconds
       },
       trafficDelay: {
-        text: formatDuration(durationSeconds - staticDurationSeconds),
-        value: durationSeconds - staticDurationSeconds
+        text: formatDuration(adjustedDurationSeconds - adjustedStaticDurationSeconds),
+        value: adjustedDurationSeconds - adjustedStaticDurationSeconds
       },
       startAddress: leg.localizedValues?.distance?.text || 'Start location',
       endAddress: leg.localizedValues?.duration?.text || 'End location',

@@ -1,13 +1,51 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Modal, TouchableOpacity, Platform } from 'react-native';
-import { X } from 'lucide-react-native';
-import { colors } from '../styles/sharedStyles';
+import MapView, { Polyline, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { X, Plus, Minus, Maximize2 } from 'lucide-react-native';
+import { colors } from '../styles/theme';
 import { loadGoogleMapsAPI } from '../utils/googleMapsLoader';
+import { decodePolyline } from '../utils/polylineDecoder';
 
 // On-demand modal that previews the planned Google Maps route and highlights border crossings.
 const RouteMapModal = ({ visible, onClose, routeInfo, fromLocation, toLocation }) => {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
+  const nativeMapRef = useRef(null);
+  const [currentRegion, setCurrentRegion] = useState(null);
+
+  // Decode polyline for native maps
+  const routeCoordinates = routeInfo?.polyline ? decodePolyline(routeInfo.polyline) : [];
+
+  const handleZoomIn = () => {
+    if (nativeMapRef.current && currentRegion) {
+      const newRegion = {
+        ...currentRegion,
+        latitudeDelta: currentRegion.latitudeDelta / 2,
+        longitudeDelta: currentRegion.longitudeDelta / 2,
+      };
+      nativeMapRef.current.animateToRegion(newRegion, 300);
+    }
+  };
+
+  const handleZoomOut = () => {
+    if (nativeMapRef.current && currentRegion) {
+      const newRegion = {
+        ...currentRegion,
+        latitudeDelta: currentRegion.latitudeDelta * 2,
+        longitudeDelta: currentRegion.longitudeDelta * 2,
+      };
+      nativeMapRef.current.animateToRegion(newRegion, 300);
+    }
+  };
+
+  const handleFitToRoute = () => {
+    if (nativeMapRef.current && routeCoordinates.length > 0) {
+      nativeMapRef.current.fitToCoordinates(routeCoordinates, {
+        edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+        animated: true,
+      });
+    }
+  };
 
   useEffect(() => {
     if (!visible || !routeInfo || Platform.OS !== 'web') return;
@@ -135,14 +173,134 @@ const RouteMapModal = ({ visible, onClose, routeInfo, fromLocation, toLocation }
             style={{ flex: 1, width: '100%', height: '100%' }}
           />
         ) : (
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-            <Text style={{ fontSize: 16, color: '#666', textAlign: 'center' }}>
-              Kort kun tilgængelig på web for nu.
-            </Text>
-            <Text style={{ fontSize: 14, color: '#999', marginTop: 8, textAlign: 'center' }}>
-              Native app kort kommer snart.
-            </Text>
-          </View>
+          <View style={{ flex: 1, position: 'relative' }}>
+            <MapView
+              ref={nativeMapRef}
+              provider={PROVIDER_GOOGLE}
+              style={{ flex: 1 }}
+              initialRegion={
+                routeCoordinates.length > 0
+                  ? {
+                      latitude: routeCoordinates[0].latitude,
+                      longitude: routeCoordinates[0].longitude,
+                      latitudeDelta: 0.5,
+                      longitudeDelta: 0.5,
+                    }
+                  : undefined
+              }
+              onRegionChangeComplete={(region) => setCurrentRegion(region)}
+              onLayout={() => {
+                // Fit map to show entire route after layout
+                if (nativeMapRef.current && routeCoordinates.length > 0) {
+                  nativeMapRef.current.fitToCoordinates(routeCoordinates, {
+                    edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+                    animated: true,
+                  });
+                }
+              }}
+            >
+            {/* Route Polyline */}
+            {routeCoordinates.length > 0 && (
+              <Polyline
+                coordinates={routeCoordinates}
+                strokeColor={colors.primary}
+                strokeWidth={4}
+              />
+            )}
+
+            {/* Start Marker */}
+            {routeCoordinates.length > 0 && (
+              <Marker
+                coordinate={routeCoordinates[0]}
+                title="Start"
+                description={fromLocation}
+                pinColor="green"
+              />
+            )}
+
+            {/* End Marker */}
+            {routeCoordinates.length > 0 && (
+              <Marker
+                coordinate={routeCoordinates[routeCoordinates.length - 1]}
+                title="Destination"
+                description={toLocation}
+                pinColor="red"
+              />
+            )}
+          </MapView>
+
+          {/* Zoom Controls - Only for native */}
+          {Platform.OS !== 'web' && (
+            <View
+              style={{
+                position: 'absolute',
+                right: 16,
+                bottom: 16,
+                gap: 8,
+              }}
+            >
+              {/* Fit to Route */}
+              <TouchableOpacity
+                onPress={handleFitToRoute}
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 24,
+                  backgroundColor: colors.white,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 4,
+                  elevation: 5,
+                }}
+              >
+                <Maximize2 size={20} color={colors.primary} strokeWidth={2} />
+              </TouchableOpacity>
+
+              {/* Zoom In */}
+              <TouchableOpacity
+                onPress={handleZoomIn}
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 24,
+                  backgroundColor: colors.white,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 4,
+                  elevation: 5,
+                }}
+              >
+                <Plus size={24} color={colors.primary} strokeWidth={2.5} />
+              </TouchableOpacity>
+
+              {/* Zoom Out */}
+              <TouchableOpacity
+                onPress={handleZoomOut}
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 24,
+                  backgroundColor: colors.white,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 4,
+                  elevation: 5,
+                }}
+              >
+                <Minus size={24} color={colors.primary} strokeWidth={2.5} />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
         )}
 
         {/* Info Footer */}

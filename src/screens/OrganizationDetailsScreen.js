@@ -3,8 +3,9 @@ import { View, Text, TouchableOpacity, Alert, ActivityIndicator, ScrollView, Sha
 import { Building2, Copy, Share2, Users, Crown, Shield, UserCheck } from 'lucide-react-native';
 import { getOrganization, getOrganizationMembers } from '../services/organizationService';
 import { useOrganization } from '../context/OrganizationContext';
-import { sharedStyles, colors } from '../styles/sharedStyles';
+import { theme, colors } from '../styles/theme';
 import * as Clipboard from 'expo-clipboard';
+import CertificateUploader from '../components/CertificateUploader';
 
 // Shows organization metadata, invite code, and member roster for the selected organization.
 const OrganizationDetailsScreen = ({ route, navigation }) => {
@@ -79,7 +80,7 @@ const OrganizationDetailsScreen = ({ route, navigation }) => {
 
   if (loading) {
     return (
-      <View style={[sharedStyles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <View style={[theme.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -87,7 +88,7 @@ const OrganizationDetailsScreen = ({ route, navigation }) => {
 
   if (!organization) {
     return (
-      <View style={[sharedStyles.container, { justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
+      <View style={[theme.container, { justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
         <Text style={{ fontSize: 16, color: '#666', textAlign: 'center' }}>
           Organisation ikke fundet
         </Text>
@@ -96,16 +97,26 @@ const OrganizationDetailsScreen = ({ route, navigation }) => {
   }
 
   return (
-    <ScrollView style={sharedStyles.container}>
+    <ScrollView style={theme.container}>
       <View style={{ padding: 24 }}>
         {/* Organization Header */}
         <View style={{ alignItems: 'center', marginBottom: 32 }}>
-          <Building2 size={64} color={colors.secondary} strokeWidth={1.5} />
-          <Text style={{ fontSize: 24, fontWeight: 'bold', color: colors.white, marginTop: 16 }}>
+          <View style={{
+            width: 80,
+            height: 80,
+            borderRadius: 40,
+            backgroundColor: colors.primary,
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginBottom: 16,
+          }}>
+            <Building2 size={40} color={colors.white} strokeWidth={2} />
+          </View>
+          <Text style={{ fontSize: 28, fontWeight: 'bold', color: colors.primary, marginBottom: 8 }}>
             {organization.name}
           </Text>
           {organization.description && (
-            <Text style={{ fontSize: 14, color: colors.secondary, marginTop: 8, textAlign: 'center' }}>
+            <Text style={{ fontSize: 14, color: colors.textSecondary, marginTop: 4, textAlign: 'center' }}>
               {organization.description}
             </Text>
           )}
@@ -113,13 +124,20 @@ const OrganizationDetailsScreen = ({ route, navigation }) => {
 
         {/* Organization Code Card */}
         <View style={{
-          backgroundColor: colors.secondary,
+          backgroundColor: colors.white,
           borderRadius: 16,
           padding: 24,
           marginBottom: 24,
           alignItems: 'center',
+          borderWidth: 1,
+          borderColor: colors.border,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
+          elevation: 5,
         }}>
-          <Text style={{ fontSize: 14, color: colors.primary, marginBottom: 8, fontWeight: '600' }}>
+          <Text style={{ fontSize: 14, color: colors.textSecondary, marginBottom: 8, fontWeight: '600' }}>
             Organisations Kode
           </Text>
           <Text style={{
@@ -131,7 +149,7 @@ const OrganizationDetailsScreen = ({ route, navigation }) => {
           }}>
             {organization.organizationCode}
           </Text>
-          <Text style={{ fontSize: 12, color: colors.primary, marginBottom: 16, textAlign: 'center', opacity: 0.8 }}>
+          <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 16, textAlign: 'center' }}>
             Del denne kode med dit team, så de kan tilslutte sig
           </Text>
 
@@ -172,13 +190,21 @@ const OrganizationDetailsScreen = ({ route, navigation }) => {
 
         {/* Members Section */}
         <View style={{
-          backgroundColor: 'rgba(214, 209, 202, 0.1)',
+          backgroundColor: colors.white,
           borderRadius: 16,
           padding: 20,
+          marginBottom: 24,
+          borderWidth: 1,
+          borderColor: colors.border,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
+          elevation: 5,
         }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 8 }}>
-            <Users size={20} color={colors.secondary} strokeWidth={2} />
-            <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.white }}>
+            <Users size={20} color={colors.primary} strokeWidth={2} />
+            <Text style={{ fontSize: 20, fontWeight: 'bold', color: colors.primary }}>
               Medlemmer ({members.length})
             </Text>
           </View>
@@ -191,7 +217,7 @@ const OrganizationDetailsScreen = ({ route, navigation }) => {
                 alignItems: 'center',
                 paddingVertical: 12,
                 borderBottomWidth: index < members.length - 1 ? 1 : 0,
-                borderBottomColor: 'rgba(214, 209, 202, 0.2)',
+                borderBottomColor: colors.border,
                 gap: 12,
               }}
             >
@@ -199,27 +225,27 @@ const OrganizationDetailsScreen = ({ route, navigation }) => {
                 width: 40,
                 height: 40,
                 borderRadius: 20,
-                backgroundColor: colors.secondary,
+                backgroundColor: colors.primary,
                 justifyContent: 'center',
                 alignItems: 'center',
               }}>
-                <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.primary }}>
+                <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.white }}>
                   {member.displayName?.charAt(0).toUpperCase() || '?'}
                 </Text>
               </View>
 
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 16, fontWeight: '600', color: colors.white }}>
+                <Text style={{ fontSize: 16, fontWeight: '600', color: colors.black }}>
                   {member.displayName || 'Ukendt'}
                 </Text>
-                <Text style={{ fontSize: 12, color: colors.secondary, marginTop: 2 }}>
+                <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
                   {member.email}
                 </Text>
               </View>
 
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                 {getRoleIcon(member.role)}
-                <Text style={{ fontSize: 12, color: colors.secondary, fontWeight: '600' }}>
+                <Text style={{ fontSize: 12, color: colors.textSecondary, fontWeight: '600' }}>
                   {getRoleText(member.role)}
                 </Text>
               </View>
@@ -227,26 +253,33 @@ const OrganizationDetailsScreen = ({ route, navigation }) => {
           ))}
         </View>
 
+        {/* Certificates Section */}
+        <CertificateUploader
+          entityType="organization"
+          entityId={organizationId}
+          canManage={activeOrganization?.memberInfo?.role === 'owner' || activeOrganization?.memberInfo?.role === 'admin'}
+        />
+
         {/* Settings Section - Only for owner/admin */}
         {activeOrganization?.memberInfo?.role === 'owner' || activeOrganization?.memberInfo?.role === 'admin' ? (
-          <View style={{ marginTop: 24 }}>
-            <TouchableOpacity
-              style={{
-                backgroundColor: 'rgba(214, 209, 202, 0.1)',
-                borderRadius: 12,
-                padding: 16,
-                alignItems: 'center',
-              }}
-              onPress={() => {
-                // TODO: Navigate to organization settings
-                Alert.alert('Kommer snart', 'Organisations indstillinger er under udvikling');
-              }}
-            >
-              <Text style={{ color: colors.secondary, fontSize: 16, fontWeight: '600' }}>
-                Organisations Indstillinger
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={{
+              backgroundColor: colors.white,
+              borderRadius: 12,
+              padding: 16,
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: colors.border,
+            }}
+            onPress={() => {
+              // TODO: Navigate to organization settings
+              Alert.alert('Kommer snart', 'Organisations indstillinger er under udvikling');
+            }}
+          >
+            <Text style={{ color: colors.primary, fontSize: 16, fontWeight: '600' }}>
+              Organisations Indstillinger
+            </Text>
+          </TouchableOpacity>
         ) : null}
       </View>
     </ScrollView>

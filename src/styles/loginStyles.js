@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { colors } from './sharedStyles';
+import { colors } from './theme';
 
 export const loginStyles = StyleSheet.create({
   forgotText: {

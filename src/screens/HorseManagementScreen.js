@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, FlatList, Alert, ActivityIndic
 import { Heart, Plus, Edit2, Trash2 } from 'lucide-react-native';
 import { createHorse, getHorses, updateHorse, deleteHorse } from '../services/horseService';
 import { useOrganization } from '../context/OrganizationContext';
-import { sharedStyles, colors } from '../styles/sharedStyles';
+import { theme, colors } from '../styles/theme';
 import { confirmAlert, showAlert } from '../utils/platformAlerts';
 
 // Manage the horse roster with create, edit, and delete workflows across private/org contexts.
@@ -173,17 +173,17 @@ const HorseManagementScreen = ({ navigation, route }) => {
 
   if (loading) {
     return (
-      <View style={[sharedStyles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <View style={[theme.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color={colors.secondary} />
       </View>
     );
   }
 
   return (
-    <View style={sharedStyles.container}>
-      <ScrollView style={{ flex: 1, padding: 16 }}>
+    <View style={theme.container}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingTop: 8 }}>
         {/* Header */}
-        <View style={{ marginBottom: 20 }}>
+        <View style={{ marginBottom: 12 }}>
           <Text style={{ fontSize: 24, fontWeight: 'bold', color: colors.secondary }}>
             Heste
           </Text>

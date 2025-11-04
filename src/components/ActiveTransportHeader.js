@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Truck, MapPin } from 'lucide-react-native';
 import { useTransport } from '../context/TransportContext';
-import { colors } from '../styles/sharedStyles';
+import { colors } from '../styles/theme';
 import { useNavigation } from '@react-navigation/native';
 
 // Banner that nudges users toward the in-progress transport details from anywhere in the app.
