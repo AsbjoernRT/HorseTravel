@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, Alert, ActivityIndicator, ScrollView } from 'react-native';
 import { Heart, Plus, Edit2, Trash2 } from 'lucide-react-native';
 import { createHorse, getHorses, updateHorse, deleteHorse } from '../services/horseService';
+import { getTransportsByStatus } from '../services/transportService';
 import { useOrganization } from '../context/OrganizationContext';
 import { theme, colors } from '../styles/theme';
 import { confirmAlert, showAlert } from '../utils/platformAlerts';
@@ -38,8 +39,26 @@ const HorseManagementScreen = ({ navigation, route }) => {
   const loadHorses = async () => {
     try {
       setLoading(true);
-      const data = await getHorses(activeMode, activeOrganization?.id);
-      setHorses(data);
+      const [horsesData, activeTransports] = await Promise.all([
+        getHorses(activeMode, activeOrganization?.id),
+        getTransportsByStatus('active', activeMode, activeOrganization?.id),
+      ]);
+
+      // Mark horses that are in active transports
+      const usedHorseIds = new Set();
+      activeTransports.forEach(transport => {
+        if (transport.horseIds) {
+          transport.horseIds.forEach(id => usedHorseIds.add(id));
+        }
+      });
+
+      // Add inTransport flag to horses
+      const horsesWithStatus = horsesData.map(h => ({
+        ...h,
+        inTransport: usedHorseIds.has(h.id),
+      }));
+
+      setHorses(horsesWithStatus);
     } catch (error) {
       console.error('Error loading horses:', error);
       Alert.alert('Fejl', 'Kunne ikke indlæse heste');
@@ -50,7 +69,7 @@ const HorseManagementScreen = ({ navigation, route }) => {
 
   const handleSave = async () => {
     if (!name.trim() || !breed.trim()) {
-      Alert.alert('Fejl', 'Udfyld venligst navn og forbund');
+      Alert.alert('Fejl', 'Udfyld venligst navn og oprindelse');
       return;
     }
 
@@ -126,9 +145,23 @@ const HorseManagementScreen = ({ navigation, route }) => {
       alignItems: 'center',
     }}>
       <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.primary }}>
-          {item.name}
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.primary }}>
+            {item.name}
+          </Text>
+          {item.inTransport && (
+            <View style={{
+              backgroundColor: '#ff9800',
+              paddingHorizontal: 6,
+              paddingVertical: 2,
+              borderRadius: 4
+            }}>
+              <Text style={{ fontSize: 10, color: 'white', fontWeight: '600' }}>
+                I TRANSPORT
+              </Text>
+            </View>
+          )}
+        </View>
         <Text style={{ fontSize: 14, color: '#666', marginTop: 4 }}>
           {item.breed}
         </Text>
@@ -224,7 +257,7 @@ const HorseManagementScreen = ({ navigation, route }) => {
 
             <View style={{ marginBottom: 12 }}>
               <Text style={{ fontSize: 14, fontWeight: '600', color: colors.primary, marginBottom: 4 }}>
-                Forbund *
+                Oprindelse *
               </Text>
               <TextInput
                 style={{

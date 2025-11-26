@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Alert, ActivityIndicator, ScrollView, Share } from 'react-native';
-import { Building2, Copy, Share2, Users, Crown, Shield, UserCheck } from 'lucide-react-native';
+import { Building2, Copy, Share2, Users, Crown, Shield, UserCheck, FileText, CheckCircle } from 'lucide-react-native';
 import { getOrganization, getOrganizationMembers } from '../services/organizationService';
 import { useOrganization } from '../context/OrganizationContext';
 import { theme, colors } from '../styles/theme';
 import * as Clipboard from 'expo-clipboard';
 import CertificateUploader from '../components/CertificateUploader';
+import { getCertificates } from '../services/documents/certificateService';
 
 // Shows organization metadata, invite code, and member roster for the selected organization.
 const OrganizationDetailsScreen = ({ route, navigation }) => {
@@ -14,6 +15,7 @@ const OrganizationDetailsScreen = ({ route, navigation }) => {
   const [organization, setOrganization] = useState(null);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [certificateCount, setCertificateCount] = useState(0);
 
   useEffect(() => {
     loadOrganizationData();
@@ -23,12 +25,14 @@ const OrganizationDetailsScreen = ({ route, navigation }) => {
   const loadOrganizationData = async () => {
     try {
       setLoading(true);
-      const [orgData, membersData] = await Promise.all([
+      const [orgData, membersData, certificates] = await Promise.all([
         getOrganization(organizationId),
         getOrganizationMembers(organizationId),
+        getCertificates('organization', organizationId),
       ]);
       setOrganization(orgData);
       setMembers(membersData);
+      setCertificateCount(certificates.length);
     } catch (error) {
       console.error('Error loading organization:', error);
       Alert.alert('Fejl', 'Kunne ikke hente organisations data');
@@ -99,6 +103,32 @@ const OrganizationDetailsScreen = ({ route, navigation }) => {
   return (
     <ScrollView style={theme.container}>
       <View style={{ padding: 24 }}>
+        {/* Certificate Badge - Top Right */}
+        <View style={{ position: 'absolute', top: 16, right: 16, zIndex: 10 }}>
+          <View style={{
+            backgroundColor: certificateCount > 0 ? '#4caf50' : colors.secondary,
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            borderRadius: 20,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 6,
+          }}>
+            {certificateCount > 0 ? (
+              <CheckCircle size={16} color="white" strokeWidth={2.5} />
+            ) : (
+              <FileText size={16} color={colors.textSecondary} strokeWidth={2} />
+            )}
+            <Text style={{
+              fontSize: 12,
+              color: certificateCount > 0 ? 'white' : colors.textSecondary,
+              fontWeight: '600'
+            }}>
+              Dokumenter
+            </Text>
+          </View>
+        </View>
+
         {/* Organization Header */}
         <View style={{ alignItems: 'center', marginBottom: 32 }}>
           <View style={{
@@ -257,7 +287,9 @@ const OrganizationDetailsScreen = ({ route, navigation }) => {
         <CertificateUploader
           entityType="organization"
           entityId={organizationId}
+          entityData={organization}
           canManage={activeOrganization?.memberInfo?.role === 'owner' || activeOrganization?.memberInfo?.role === 'admin'}
+          enableAIExtraction={true}
         />
 
         {/* Settings Section - Only for owner/admin */}

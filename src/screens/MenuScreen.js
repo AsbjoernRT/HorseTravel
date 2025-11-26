@@ -46,7 +46,10 @@ const MenuScreen = ({ navigation }) => {
   return (
     <ScrollView style={theme.container} contentContainerStyle={{ padding: 20, paddingTop: 60 }}>
       {/* User Profile Section */}
-      <View style={{ alignItems: 'center', marginBottom: 30 }}>
+      <TouchableOpacity
+        style={{ alignItems: 'center', marginBottom: 30 }}
+        onPress={() => navigation.navigate('Profile')}
+      >
         <View style={{
           width: 80,
           height: 80,
@@ -55,8 +58,17 @@ const MenuScreen = ({ navigation }) => {
           justifyContent: 'center',
           alignItems: 'center',
           marginBottom: 12,
+          overflow: 'hidden',
         }}>
-          <User size={40} color={colors.white} strokeWidth={2} />
+          {userProfile?.photoURL ? (
+            <Image
+              source={{ uri: userProfile.photoURL }}
+              style={{ width: 80, height: 80 }}
+              resizeMode="cover"
+            />
+          ) : (
+            <User size={40} color={colors.white} strokeWidth={2} />
+          )}
         </View>
         <Text style={{ fontSize: 20, fontWeight: 'bold', color: colors.black, marginBottom: 4 }}>
           {userProfile?.displayName || 'Bruger'}
@@ -64,7 +76,10 @@ const MenuScreen = ({ navigation }) => {
         <Text style={{ fontSize: 14, color: colors.textSecondary }}>
           {user?.email}
         </Text>
-      </View>
+        <Text style={{ fontSize: 12, color: colors.primary, marginTop: 8, fontWeight: '600' }}>
+          Rediger profil →
+        </Text>
+      </TouchableOpacity>
 
       {/* Mode Switcher */}
       <View style={{ marginBottom: 30 }}>

@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { subscribeToAuthState, getUserProfile } from '../services/authService';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { subscribeToAuthState } from '../services/authService';
 import { migrateUserProfile } from '../services/migrationService';
+import { db } from '../config/firebase';
 
 const AuthContext = createContext();
 
@@ -19,40 +21,72 @@ export const AuthProvider = ({ children }) => {
   const [needsProfileSetup, setNeedsProfileSetup] = useState(false);
 
   useEffect(() => {
+    let unsubscribeProfile = null;
+
     // Subscribe to Firebase auth state changes
-    const unsubscribe = subscribeToAuthState(async (firebaseUser) => {
+    const unsubscribeAuth = subscribeToAuthState(async (firebaseUser) => {
       if (firebaseUser) {
         setUser(firebaseUser);
 
         // Migrate user profile if needed
         await migrateUserProfile(firebaseUser.uid);
 
-        // Fetch user profile from Firestore
-        try {
-          const profile = await getUserProfile(firebaseUser.uid);
-          setUserProfile(profile);
+        // Subscribe to real-time user profile updates from Firestore
+        const userDocRef = doc(db, 'users', firebaseUser.uid);
+        unsubscribeProfile = onSnapshot(
+          userDocRef,
+          (docSnapshot) => {
+            if (docSnapshot.exists()) {
+              const profile = { id: docSnapshot.id, ...docSnapshot.data() };
+              setUserProfile(profile);
 
-          // Check if profile setup is needed (phone auth without name)
-          if (profile.provider === 'phone' && !profile.displayName && !profile.profileComplete) {
-            setNeedsProfileSetup(true);
-          } else {
+              // Check if profile setup is needed (phone auth without name)
+              if (profile.provider === 'phone' && !profile.displayName && !profile.profileComplete) {
+                setNeedsProfileSetup(true);
+              } else {
+                setNeedsProfileSetup(false);
+              }
+            } else {
+              setUserProfile(null);
+            }
+            setLoading(false);
+          },
+          (error) => {
+            console.error('Error subscribing to user profile:', error);
             setNeedsProfileSetup(false);
+            setLoading(false);
           }
-        } catch (error) {
-          console.error('Error fetching user profile:', error);
-          setNeedsProfileSetup(false);
-        }
+        );
       } else {
         setUser(null);
         setUserProfile(null);
         setNeedsProfileSetup(false);
+        setLoading(false);
+
+        // Unsubscribe from profile updates if exists
+        if (unsubscribeProfile) {
+          unsubscribeProfile();
+          unsubscribeProfile = null;
+        }
       }
-      setLoading(false);
     });
 
-    // Cleanup subscription
-    return () => unsubscribe();
+    // Cleanup subscriptions
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeProfile) {
+        unsubscribeProfile();
+      }
+    };
   }, []);
+
+  const refreshUserProfile = async () => {
+    if (user) {
+      // The onSnapshot will automatically refresh when Firestore data changes
+      // This function is provided for manual refresh if needed
+      return Promise.resolve();
+    }
+  };
 
   return (
     <AuthContext.Provider value={{
@@ -60,6 +94,7 @@ export const AuthProvider = ({ children }) => {
       userProfile,
       loading,
       needsProfileSetup,
+      refreshUserProfile,
     }}>
       {children}
     </AuthContext.Provider>

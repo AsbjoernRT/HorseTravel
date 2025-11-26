@@ -1,20 +1,18 @@
 import './global.css';
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View, TouchableOpacity, Text } from 'react-native';
 import { Home, Truck, Heart, Building2, Map, Menu, PlusCircle, MessageCircle } from 'lucide-react-native';
-import Toast from 'react-native-toast-message';
+import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 
 // Context Providers
 import { AuthProvider, useAuth } from './src/context/AuthContext';
-import { OrganizationProvider } from './src/context/OrganizationContext';
+import { OrganizationProvider, useOrganization } from './src/context/OrganizationContext';
 import { TransportProvider } from './src/context/TransportContext';
-
-// Components
-import ActiveTransportHeader from './src/components/ActiveTransportHeader';
 
 // Auth Screens
 import LoginScreen from './src/screens/LoginScreen';
@@ -25,6 +23,7 @@ import PhoneLoginScreen from './src/screens/PhoneLoginScreen';
 // Main App Screens
 import HomeScreen from './src/screens/HomeScreen';
 import ProfileSetupScreen from './src/screens/ProfileSetupScreen';
+import ProfileScreen from './src/screens/ProfileScreen';
 import OrganizationSetupScreen from './src/screens/OrganizationSetupScreen';
 import OrganizationDetailsScreen from './src/screens/OrganizationDetailsScreen';
 import VehicleManagementScreen from './src/screens/VehicleManagementScreen';
@@ -35,7 +34,7 @@ import TransportDetailsScreen from './src/screens/TransportDetailsScreen';
 import MenuScreen from './src/screens/MenuScreen';
 import ChatbotScreen from './src/screens/ChatbotScreen';
 
-const Stack = createStackNavigator();
+const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 // Auth Stack Navigator
@@ -148,7 +147,6 @@ const MainStack = () => (
       headerBackTitleVisible: false,
       header: (props) => (
         <View>
-          <ActiveTransportHeader />
           {props.options.headerShown !== false && (
             <View style={{
               backgroundColor: '#ffffff',
@@ -173,6 +171,11 @@ const MainStack = () => (
       name="MainTabs"
       component={MainTabs}
       options={{ headerShown: false }}
+    />
+    <Stack.Screen
+      name="Profile"
+      component={ProfileScreen}
+      options={{ title: 'Min Profil' }}
     />
     <Stack.Screen
       name="VehicleManagement"
@@ -232,17 +235,95 @@ const RootNavigator = () => {
   );
 };
 
+// Wrapper to provide organization context to TransportProvider
+const AppProviders = ({ children }) => {
+  const { user } = useAuth();
+  const { activeMode, activeOrganization } = useOrganization();
+
+  return (
+    <TransportProvider
+      user={user}
+      activeMode={activeMode}
+      activeOrganization={activeOrganization}
+    >
+      {children}
+    </TransportProvider>
+  );
+};
+
+// Toast Configuration
+const toastConfig = {
+  success: (props) => (
+    <BaseToast
+      {...props}
+      style={{ borderLeftColor: '#4caf50' }}
+      contentContainerStyle={{ paddingHorizontal: 15 }}
+      text1Style={{
+        fontSize: 15,
+        fontWeight: '600',
+      }}
+      text2Style={{
+        fontSize: 13,
+      }}
+    />
+  ),
+  error: (props) => (
+    <ErrorToast
+      {...props}
+      style={{ borderLeftColor: '#f44336' }}
+      contentContainerStyle={{ paddingHorizontal: 15 }}
+      text1Style={{
+        fontSize: 15,
+        fontWeight: '600',
+      }}
+      text2Style={{
+        fontSize: 13,
+      }}
+    />
+  ),
+  warning: (props) => (
+    <BaseToast
+      {...props}
+      style={{ borderLeftColor: '#ff9800' }}
+      contentContainerStyle={{ paddingHorizontal: 15 }}
+      text1Style={{
+        fontSize: 15,
+        fontWeight: '600',
+      }}
+      text2Style={{
+        fontSize: 13,
+      }}
+    />
+  ),
+  info: (props) => (
+    <BaseToast
+      {...props}
+      style={{ borderLeftColor: '#2196f3' }}
+      contentContainerStyle={{ paddingHorizontal: 15 }}
+      text1Style={{
+        fontSize: 15,
+        fontWeight: '600',
+      }}
+      text2Style={{
+        fontSize: 13,
+      }}
+    />
+  ),
+};
+
 // Main App Component
 export default function App() {
   return (
-    <AuthProvider>
-      <OrganizationProvider>
-        <TransportProvider>
-          <RootNavigator />
-          <StatusBar style="auto" />
-          <Toast />
-        </TransportProvider>
-      </OrganizationProvider>
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <OrganizationProvider>
+          <AppProviders>
+            <RootNavigator />
+            <StatusBar style="auto" />
+            <Toast config={toastConfig} />
+          </AppProviders>
+        </OrganizationProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }

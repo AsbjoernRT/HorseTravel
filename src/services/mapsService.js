@@ -215,22 +215,74 @@ export const getDirections = async (origin, destination, vehicleType = null, has
 const detectBorderCrossings = (steps) => {
   const crossings = new Set();
 
+  // Extended country list with English and Danish names
+  const countryNames = {
+    // Denmark
+    'denmark': 'Denmark',
+    'danmark': 'Denmark',
+    // Sweden
+    'sweden': 'Sweden',
+    'sverige': 'Sweden',
+    // Norway
+    'norway': 'Norway',
+    'norge': 'Norway',
+    // Germany
+    'germany': 'Germany',
+    'tyskland': 'Germany',
+    'deutschland': 'Germany',
+    // France
+    'france': 'France',
+    'frankrig': 'France',
+    // Poland
+    'poland': 'Poland',
+    'polen': 'Poland',
+    'polska': 'Poland',
+    // Switzerland
+    'switzerland': 'Switzerland',
+    'schweiz': 'Switzerland',
+    'svizzera': 'Switzerland',
+    'suisse': 'Switzerland',
+    // UK
+    'united kingdom': 'United Kingdom',
+    'great britain': 'United Kingdom',
+    'england': 'United Kingdom',
+    'uk': 'United Kingdom',
+    'scotland': 'United Kingdom',
+    'wales': 'United Kingdom',
+    // Netherlands
+    'netherlands': 'Netherlands',
+    'nederland': 'Netherlands',
+    'holland': 'Netherlands',
+    // Belgium
+    'belgium': 'Belgium',
+    'belgië': 'Belgium',
+    'belgique': 'Belgium',
+    // Austria
+    'austria': 'Austria',
+    'österreich': 'Austria',
+    'østrig': 'Austria',
+    // Italy
+    'italy': 'Italy',
+    'italien': 'Italy',
+    'italia': 'Italy',
+  };
+
   steps.forEach(step => {
     const instruction = step.navigationInstruction?.instructions || '';
+    const lowerInstruction = instruction.toLowerCase();
 
     // Look for "Entering [Country]" pattern
-    if (instruction.includes('Entering ')) {
-      const match = instruction.match(/Entering (.+?)(?:\.|$)/);
+    if (lowerInstruction.includes('entering ')) {
+      const match = instruction.match(/entering (.+?)(?:\.|$)/i);
       if (match) {
         crossings.add(match[1]);
       }
     }
 
-    // Also check for country names in maneuvers
-    const commonCountries = ['Denmark', 'Sverige', 'Norway', 'Germany', 'Tyskland', 'Poland', 'Polen'];
-    commonCountries.forEach(country => {
-      if (instruction.includes(country)) {
-        crossings.add(country);
+    // Check for country names in instructions (case-insensitive)
+    Object.entries(countryNames).forEach(([searchTerm, standardName]) => {
+      if (lowerInstruction.includes(searchTerm)) {
+        crossings.add(standardName);
       }
     });
   });

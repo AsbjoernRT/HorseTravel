@@ -27,26 +27,43 @@ const HorseSelectionModal = ({ visible, horses, selectedHorses, onToggleHorse, o
 
   const renderHorse = ({ item }) => {
     const selected = isSelected(item);
+    const isInUse = item.inUse && !selected; // Allow deselecting current selection
 
     return (
       <Pressable
         style={{
-          backgroundColor: selected ? colors.secondary + '20' : colors.white,
+          backgroundColor: isInUse ? '#f5f5f5' : (selected ? colors.secondary + '20' : colors.white),
           padding: 16,
           marginBottom: 8,
           borderRadius: 8,
           borderWidth: selected ? 2 : 1,
-          borderColor: selected ? colors.primary : '#e0e0e0',
+          borderColor: isInUse ? '#ccc' : (selected ? colors.primary : '#e0e0e0'),
           flexDirection: 'row',
           justifyContent: 'space-between',
           alignItems: 'center',
+          opacity: isInUse ? 0.5 : 1,
         }}
-        onPress={() => onToggleHorse(item)}
+        onPress={() => !isInUse && onToggleHorse(item)}
+        disabled={isInUse}
       >
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.primary }}>
-            {item.name}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.primary }}>
+              {item.name}
+            </Text>
+            {isInUse && (
+              <View style={{
+                backgroundColor: '#ff9800',
+                paddingHorizontal: 6,
+                paddingVertical: 2,
+                borderRadius: 4
+              }}>
+                <Text style={{ fontSize: 10, color: 'white', fontWeight: '600' }}>
+                  I TRANSPORT
+                </Text>
+              </View>
+            )}
+          </View>
           <Text style={{ fontSize: 14, color: '#666', marginTop: 4 }}>
             {item.breed}
           </Text>

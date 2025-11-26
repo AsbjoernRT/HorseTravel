@@ -7,6 +7,7 @@ import { ChevronRight, MapPin, Clock, Navigation, AlertTriangle, Plus, Caravan, 
 import Toast from 'react-native-toast-message';
 import { useOrganization } from '../context/OrganizationContext';
 import { useTransport } from '../context/TransportContext';
+import { useAuth } from '../context/AuthContext';
 import { getVehicles } from '../services/vehicleService';
 import { getHorses } from '../services/horseService';
 import { createTransport, getTransportsByStatus, updateTransport } from '../services/transportService';
@@ -17,11 +18,15 @@ import VehicleSelectionModal from '../components/VehicleSelectionModal';
 import HorseSelectionModal from '../components/HorseSelectionModal';
 import RouteMapModal from '../components/RouteMapModal';
 import LocationAutocomplete from '../components/LocationAutocomplete';
+import ComplianceChecklist from '../components/ComplianceChecklist';
 import { getDirections, getCurrentLocation, reverseGeocode } from '../services/mapsService';
+import { getComplianceRequirements, checkCompliance } from '../services/transportRegulationsService';
+import { getAutoConfirmedDocuments, getCertificateCoverage } from '../services/certificateComplianceService';
 
 const StartTransportScreen = ({ navigation, route }) => {
   const { activeMode, activeOrganization, hasPermission } = useOrganization();
   const { activeTransport, startTransport } = useTransport();
+  const { user } = useAuth();
 
   // Edit mode - check if we're editing an existing transport
   const editTransport = route?.params?.editTransport;
@@ -76,7 +81,14 @@ const StartTransportScreen = ({ navigation, route }) => {
   const [gettingLocation, setGettingLocation] = useState(false);
   const [routeExpanded, setRouteExpanded] = useState(true);
 
-  const canCreate = activeMode === 'private' || hasPermission('canManageTours');
+  // Compliance state
+  const [complianceRequirements, setComplianceRequirements] = useState(null);
+  const [confirmedDocuments, setConfirmedDocuments] = useState([]);
+  const [autoConfirmedDocuments, setAutoConfirmedDocuments] = useState([]);
+  const [loadingCertificates, setLoadingCertificates] = useState(false);
+
+  // Everyone can create their own transports
+  const canCreate = true;
 
   const cancelDateSelection = () => {
     setShowDatePicker(false);
@@ -116,6 +128,9 @@ const StartTransportScreen = ({ navigation, route }) => {
         setDepartureTime('');
         setNotes('');
         setRouteInfo(null);
+        setComplianceRequirements(null);
+        setConfirmedDocuments([]);
+        setAutoConfirmedDocuments([]);
       }
 
       // Load fresh data
@@ -180,12 +195,39 @@ const StartTransportScreen = ({ navigation, route }) => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [vehiclesData, horsesData] = await Promise.all([
+      const [vehiclesData, horsesData, activeTransports] = await Promise.all([
         getVehicles(activeMode, activeOrganization?.id),
-        getHorses(activeMode, activeOrganization?.id)
+        getHorses(activeMode, activeOrganization?.id),
+        getTransportsByStatus('active', activeMode, activeOrganization?.id),
       ]);
-      setVehicles(vehiclesData);
-      setHorses(horsesData);
+
+      // Mark vehicles and horses that are in use
+      const usedVehicleIds = new Set();
+      const usedTrailerIds = new Set();
+      const usedHorseIds = new Set();
+
+      activeTransports.forEach(transport => {
+        if (transport.vehicleId) usedVehicleIds.add(transport.vehicleId);
+        if (transport.trailerId) usedTrailerIds.add(transport.trailerId);
+        if (transport.horseIds) {
+          transport.horseIds.forEach(id => usedHorseIds.add(id));
+        }
+      });
+
+      // Add inUse flag to vehicles
+      const vehiclesWithStatus = vehiclesData.map(v => ({
+        ...v,
+        inUse: usedVehicleIds.has(v.id) || usedTrailerIds.has(v.id),
+      }));
+
+      // Add inUse flag to horses
+      const horsesWithStatus = horsesData.map(h => ({
+        ...h,
+        inUse: usedHorseIds.has(h.id),
+      }));
+
+      setVehicles(vehiclesWithStatus);
+      setHorses(horsesWithStatus);
     } catch (error) {
       console.error('Error loading data:', error);
       Alert.alert('Fejl', 'Kunne ikke indlæse data');
@@ -202,7 +244,7 @@ const StartTransportScreen = ({ navigation, route }) => {
     }
   };
 
-  // Calculate route when both locations are filled or vehicle/trailer changes
+  // Calculate route and compliance requirements when locations change
   useEffect(() => {
     const calculateRoute = async () => {
       // Only calculate if both locations are filled and have reasonable length
@@ -217,21 +259,74 @@ const StartTransportScreen = ({ navigation, route }) => {
             !!selectedTrailer // hasTrailer
           );
           setRouteInfo(route);
+
+          // Calculate compliance requirements based on route
+          const distanceKm = route.distance.km || (route.distance.value / 1000);
+          const requirements = getComplianceRequirements(
+            route,
+            distanceKm,
+            route.borderCrossing,
+            route.countries,
+            selectedVehicle?.vehicleType
+          );
+          setComplianceRequirements(requirements);
+
+          // Auto-check documents based on available certificates (only for organization mode)
+          if (activeMode === 'organization' && activeOrganization?.id) {
+            setLoadingCertificates(true);
+            try {
+              const horseIds = selectedHorses.map(h => h.id);
+              const autoConfirmed = await getAutoConfirmedDocuments(
+                requirements,
+                activeOrganization.id,
+                selectedVehicle?.id,
+                horseIds
+              );
+
+              // Store auto-confirmed separately and merge with confirmed
+              setAutoConfirmedDocuments(autoConfirmed);
+              setConfirmedDocuments(prev => {
+                const merged = new Set([...autoConfirmed, ...prev]);
+                return Array.from(merged);
+              });
+
+              if (autoConfirmed.length > 0) {
+                const sources = [];
+                if (activeOrganization?.id) sources.push('organisation');
+                if (selectedVehicle?.id) sources.push('køretøj');
+                if (horseIds.length > 0) sources.push('heste');
+
+                Toast.show({
+                  type: 'success',
+                  text1: 'Certifikater fundet',
+                  text2: `${autoConfirmed.length} dokument(er) auto-bekræftet fra ${sources.join(', ')}`,
+                  visibilityTime: 3000,
+                });
+              }
+            } catch (error) {
+              console.error('Error auto-confirming documents:', error);
+            } finally {
+              setLoadingCertificates(false);
+            }
+          }
+
         } catch (error) {
           console.error('Error calculating route:', error);
           setRouteInfo(null);
+          setComplianceRequirements(null);
         } finally {
           setLoadingRoute(false);
         }
       } else {
         setRouteInfo(null);
+        setComplianceRequirements(null);
       }
     };
 
     // Debounce route calculation
     const timeoutId = setTimeout(calculateRoute, 1000);
     return () => clearTimeout(timeoutId);
-  }, [fromLocation, toLocation, selectedVehicle?.vehicleType, selectedTrailer]);
+  }, [fromLocation, toLocation, selectedVehicle?.vehicleType, selectedVehicle?.id, selectedTrailer, selectedHorses]);
 
   const handleUseCurrentLocation = async () => {
     try {
@@ -305,6 +400,19 @@ const StartTransportScreen = ({ navigation, route }) => {
       return;
     }
 
+    // Check compliance requirements
+    if (complianceRequirements) {
+      const complianceCheck = checkCompliance(complianceRequirements, confirmedDocuments);
+      if (!complianceCheck.isCompliant) {
+        Toast.show({
+          type: 'error',
+          text1: 'Manglende Dokumentation',
+          text2: `${complianceCheck.missing.length} påkrævet(e) dokument(er) er ikke bekræftet`,
+        });
+        return;
+      }
+    }
+
     // Determine status based on date/time
     const buttonText = getButtonText();
     let transportStatus = 'planned';
@@ -317,10 +425,11 @@ const StartTransportScreen = ({ navigation, route }) => {
     }
 
     if (buttonText === 'Start Transport') {
-      // Check if there's already an active transport in database
+      // Check if there's already an active transport owned by this user
       try {
         const activeTransports = await getTransportsByStatus('active', activeMode, activeOrganization?.id);
-        if (activeTransports && activeTransports.length > 0) {
+        const ownActiveTransports = activeTransports.filter(t => t.ownerId === user?.uid);
+        if (ownActiveTransports && ownActiveTransports.length > 0) {
           Toast.show({
             type: 'error',
             text1: 'Aktiv Transport',
@@ -370,6 +479,20 @@ const StartTransportScreen = ({ navigation, route }) => {
       const defaultDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
       const defaultTime = now.toTimeString().split(' ')[0].substring(0, 5); // HH:MM
 
+      // Calculate estimated arrival if we have route info
+      let estimatedArrivalDate = null;
+      let estimatedArrivalTime = null;
+      if (routeInfo?.duration?.value) {
+        const departureDateTime = new Date(`${departureDate.trim() || defaultDate}T${departureTime.trim() || defaultTime}`);
+        if (!isNaN(departureDateTime.getTime())) {
+          const estimatedArrival = new Date(departureDateTime.getTime() + (routeInfo.duration.value * 1000));
+          if (!isNaN(estimatedArrival.getTime())) {
+            estimatedArrivalDate = estimatedArrival.toISOString().split('T')[0];
+            estimatedArrivalTime = estimatedArrival.toTimeString().split(' ')[0].substring(0, 5);
+          }
+        }
+      }
+
       const transportData = {
         fromLocation: fromLocation.trim(),
         toLocation: toLocation.trim(),
@@ -382,8 +505,13 @@ const StartTransportScreen = ({ navigation, route }) => {
         horseCount: selectedHorses.length,
         departureDate: departureDate.trim() || defaultDate,
         departureTime: departureTime.trim() || defaultTime,
+        estimatedArrivalDate,
+        estimatedArrivalTime,
         notes: notes.trim() || null,
         status: status, // planned, active, completed, cancelled
+        // Track actual start time when status is active
+        actualStartTime: status === 'active' ? now.toISOString() : null,
+        actualEndTime: status === 'completed' ? now.toISOString() : null,
         // Route information
         routeInfo: routeInfo ? {
           distance: routeInfo.distance.value,
@@ -394,6 +522,9 @@ const StartTransportScreen = ({ navigation, route }) => {
           countries: routeInfo.countries,
           polyline: routeInfo.polyline,
         } : null,
+        // Compliance information
+        complianceRequirements: complianceRequirements,
+        confirmedDocuments: confirmedDocuments,
       };
 
       let result;
@@ -1077,6 +1208,41 @@ const StartTransportScreen = ({ navigation, route }) => {
             <ChevronRight size={20} color={colors.primary} />
           </Pressable>
         </View>
+
+        {/* Compliance Checklist - shown when route info is available */}
+        {complianceRequirements && (
+          <View>
+            {loadingCertificates && (
+              <View style={{
+                backgroundColor: colors.white,
+                padding: 12,
+                borderRadius: 8,
+                marginBottom: 12,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
+              }}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={{ fontSize: 14, color: '#666' }}>
+                  Tjekker uploadede certifikater...
+                </Text>
+              </View>
+            )}
+            <ComplianceChecklist
+              requirements={complianceRequirements}
+              confirmedDocuments={confirmedDocuments}
+              autoConfirmedDocuments={autoConfirmedDocuments}
+              onToggleDocument={(docId) => {
+                setConfirmedDocuments(prev =>
+                  prev.includes(docId)
+                    ? prev.filter(id => id !== docId)
+                    : [...prev, docId]
+                );
+              }}
+              editable={true}
+            />
+          </View>
+        )}
 
         {/* Action Buttons */}
         <View style={{ marginBottom: 40 }}>

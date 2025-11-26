@@ -81,7 +81,7 @@ service cloud.firestore {
     // Transports collection
     match /transports/{transportId} {
       // Private transports: only owner can access
-      // Organization transports: all members can read, members with permission can write
+      // Organization transports: all members can read, members can write their own
       allow read: if isAuthenticated() && (
         // Private transport owned by user
         (resource.data.ownerType == 'private' && resource.data.ownerId == request.auth.uid) ||
@@ -93,17 +93,27 @@ service cloud.firestore {
       allow create: if isAuthenticated() && (
         // Creating private transport
         (request.resource.data.ownerType == 'private' && request.resource.data.ownerId == request.auth.uid) ||
-        // Creating organization transport with permission
+        // Creating organization transport - any member can create their own transport
         (request.resource.data.ownerType == 'organization' &&
-         get(/databases/$(database)/documents/organizations/$(request.resource.data.organizationId)/members/$(request.auth.uid)).data.permissions.canManageTours == true)
+         request.resource.data.ownerId == request.auth.uid &&
+         exists(/databases/$(database)/documents/organizations/$(request.resource.data.organizationId)/members/$(request.auth.uid)))
       );
 
-      allow update, delete: if isAuthenticated() && (
+      allow update: if isAuthenticated() && (
         // Updating own private transport
         (resource.data.ownerType == 'private' && resource.data.ownerId == request.auth.uid) ||
-        // Updating organization transport with permission
-        (resource.data.ownerType == 'organization' &&
-         get(/databases/$(database)/documents/organizations/$(resource.data.organizationId)/members/$(request.auth.uid)).data.permissions.canManageTours == true)
+        // Updating own organization transport
+        (resource.data.ownerType == 'organization' && resource.data.ownerId == request.auth.uid)
+      );
+
+      allow delete: if isAuthenticated() && (
+        // Deleting own private transport
+        (resource.data.ownerType == 'private' && resource.data.ownerId == request.auth.uid) ||
+        // Deleting organization transport - only own or with permission
+        (resource.data.ownerType == 'organization' && (
+          resource.data.ownerId == request.auth.uid ||
+          get(/databases/$(database)/documents/organizations/$(resource.data.organizationId)/members/$(request.auth.uid)).data.permissions.canManageTours == true
+        ))
       );
     }
 

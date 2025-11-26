@@ -1,4 +1,4 @@
-import { storage, db } from '../../config/firebase';
+import { storage, db, auth } from '../../config/firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp, query, where, orderBy, getDocs, getDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 
@@ -29,11 +29,32 @@ export const uploadCertificate = async (file, entityType, entityId, metadata = {
     const response = await fetch(file.uri);
     const blob = await response.blob();
 
-    // Upload to Firebase Storage
+    // Prepare custom metadata for Storage
+    const customMetadata = {
+      entityType,
+      entityId,
+      uploadedBy: auth.currentUser?.uid || 'unknown',
+      certificateType: metadata.certificateType || 'unknown',
+    };
+
+    // Add extracted data summary to metadata (Storage has size limits, so only key info)
+    if (metadata.extractedData) {
+      customMetadata.hasExtractedData = 'true';
+      customMetadata.companyName = metadata.extractedData.company?.name || '';
+      customMetadata.authNumber = metadata.extractedData.authorisation?.authorisation_number || '';
+      customMetadata.journeyType = metadata.extractedData.authorisation?.journey_type || '';
+      customMetadata.expiryDate = metadata.extractedData.authorisation?.expiry_date || '';
+      customMetadata.issueDate = metadata.extractedData.authorisation?.issue_date || '';
+    }
+
+    // Upload to Firebase Storage with metadata
     const storageRef = ref(storage, storagePath);
     await uploadBytes(storageRef, blob, {
       contentType: file.type || file.mimeType || 'application/octet-stream',
+      customMetadata,
     });
+
+    console.log('[certificateService] Uploaded with custom metadata:', customMetadata);
 
     // Get download URL
     const downloadURL = await getDownloadURL(storageRef);
@@ -48,10 +69,28 @@ export const uploadCertificate = async (file, entityType, entityId, metadata = {
       entityType,
       entityId,
       uploadedAt: serverTimestamp(),
+      uploadedBy: auth.currentUser?.uid,
       ...metadata,
     };
 
+    console.log('[certificateService] Saving certificate to Firestore:', {
+      fileName: file.name,
+      entityType,
+      entityId,
+      hasExtractedData: !!metadata.extractedData,
+    });
+
     const docRef = await addDoc(collection(db, 'certificates'), certificateData);
+
+    console.log('[certificateService] Certificate saved with ID:', docRef.id);
+
+    if (metadata.extractedData) {
+      console.log('[certificateService] Extracted data stored:', {
+        company: metadata.extractedData.company?.name,
+        authNumber: metadata.extractedData.authorisation?.authorisation_number,
+        expiryDate: metadata.extractedData.authorisation?.expiry_date,
+      });
+    }
 
     return {
       id: docRef.id,
@@ -140,5 +179,32 @@ export const updateCertificateMetadata = async (certificateId, updates) => {
   } catch (error) {
     console.error('Error updating certificate:', error);
     throw error;
+  }
+};
+
+/**
+ * Updates certificate with extracted data
+ * @param {string} certificateId - ID of the certificate document
+ * @param {Object} data - Extracted certificate data and metadata
+ * @returns {Promise<void>}
+ */
+export const updateCertificateData = async (certificateId, data) => {
+  try {
+    const docRef = doc(db, 'certificates', certificateId);
+
+    await updateDoc(docRef, {
+      ...data,
+      updatedAt: serverTimestamp(),
+    });
+
+    console.log('[certificateService] Certificate data updated:', {
+      id: certificateId,
+      hasExtractedData: data.hasExtractedData,
+      extractionMethod: data.extractionMethod,
+      certificateType: data.certificateType,
+    });
+  } catch (error) {
+    console.error('Error updating certificate data:', error);
+    throw new Error(`Kunne ikke opdatere certifikatdata: ${error.message}`);
   }
 };

@@ -1,22 +1,38 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, FlatList, Alert, ActivityIndicator, ScrollView } from 'react-native';
-import { MapPin, Calendar, Plus, Edit2, Trash2, Clock, Caravan } from 'lucide-react-native';
+import { MapPin, Calendar, Plus, Edit2, Trash2, Clock, Caravan, User } from 'lucide-react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useOrganization } from '../context/OrganizationContext';
+import { useAuth } from '../context/AuthContext';
 import { getTransports, deleteTransport } from '../services/transportService';
 import { theme, colors } from '../styles/theme';
 
 // Lists historic and planned transports with filtering and management actions.
-const TransportListScreen = ({ navigation }) => {
+const TransportListScreen = ({ navigation, route }) => {
   const { activeMode, activeOrganization, hasPermission } = useOrganization();
+  const { user } = useAuth();
   const [transports, setTransports] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all'); // all, planned, active, completed
+  const [filter, setFilter] = useState(route.params?.initialFilter || 'all'); // all, planned, active, completed
 
+  // Everyone can create their own transports
+  const canStartTransport = true;
+  // Only admins can manage (delete) transports
   const canManage = activeMode === 'private' || hasPermission('canManageTours');
 
+  // Set initial filter from route params
   useEffect(() => {
-    loadTransports();
-  }, [activeMode, activeOrganization, filter]);
+    if (route.params?.initialFilter) {
+      setFilter(route.params.initialFilter);
+    }
+  }, [route.params?.initialFilter]);
+
+  // Reload transports when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      loadTransports();
+    }, [activeMode, activeOrganization, filter])
+  );
 
   const loadTransports = async () => {
     try {
@@ -27,6 +43,14 @@ const TransportListScreen = ({ navigation }) => {
       let filtered = data;
       if (filter !== 'all') {
         filtered = data.filter(t => t.status === filter);
+      }
+
+      // Separate own and others' transports for active status
+      if (filter === 'active') {
+        const ownTransports = filtered.filter(t => t.ownerId === user?.uid);
+        const othersTransports = filtered.filter(t => t.ownerId !== user?.uid);
+        // Sort: own first, then others
+        filtered = [...ownTransports, ...othersTransports];
       }
 
       setTransports(filtered);
@@ -82,37 +106,51 @@ const TransportListScreen = ({ navigation }) => {
     }
   };
 
-  const renderTransport = ({ item }) => (
-    <TouchableOpacity
-      style={{
-        backgroundColor: colors.white,
-        padding: 16,
-        marginBottom: 12,
-        borderRadius: 12,
-      }}
-      onPress={() => navigation.navigate('TransportDetails', { transportId: item.id })}
-      activeOpacity={0.7}
-    >
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            <View style={{
-              backgroundColor: getStatusColor(item.status),
-              paddingHorizontal: 8,
-              paddingVertical: 4,
-              borderRadius: 6,
-            }}>
-              <Text style={{ color: colors.white, fontSize: 12, fontWeight: '600' }}>
-                {getStatusText(item.status)}
+  const renderTransport = ({ item }) => {
+    const isOwnTransport = item.ownerId === user?.uid;
+    const isActive = item.status === 'active';
+
+    return (
+      <TouchableOpacity
+        style={{
+          backgroundColor: colors.white,
+          padding: 16,
+          marginBottom: 12,
+          borderRadius: 12,
+          borderWidth: isActive && !isOwnTransport ? 2 : 0,
+          borderColor: isActive && !isOwnTransport ? colors.secondary : 'transparent',
+        }}
+        onPress={() => navigation.navigate('TransportDetails', { transportId: item.id })}
+        activeOpacity={0.7}
+      >
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <View style={{
+                backgroundColor: getStatusColor(item.status),
+                paddingHorizontal: 8,
+                paddingVertical: 4,
+                borderRadius: 6,
+              }}>
+                <Text style={{ color: colors.white, fontSize: 12, fontWeight: '600' }}>
+                  {getStatusText(item.status)}
+                </Text>
+              </View>
+              {isActive && !isOwnTransport && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <User size={14} color={colors.textSecondary} />
+                  <Text style={{ fontSize: 12, color: colors.textSecondary, fontWeight: '600' }}>
+                    Anden chauffør
+                  </Text>
+                </View>
+              )}
+              <Text style={{ fontSize: 12, color: '#999' }}>
+                {item.horseCount} {item.horseCount === 1 ? 'hest' : 'heste'}
+              </Text>
+              <Text style={{ fontSize: 12, color: '#ccc' }}>
+                • Tryk for detaljer
               </Text>
             </View>
-            <Text style={{ fontSize: 12, color: '#999' }}>
-              {item.horseCount} {item.horseCount === 1 ? 'hest' : 'heste'}
-            </Text>
-            <Text style={{ fontSize: 12, color: '#ccc' }}>
-              • Tryk for detaljer
-            </Text>
-          </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
             <MapPin size={16} color={colors.primary} />
@@ -183,7 +221,7 @@ const TransportListScreen = ({ navigation }) => {
           )}
         </View>
 
-        {canManage && (
+        {canManage && isOwnTransport && (
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <TouchableOpacity
               style={{
@@ -202,7 +240,8 @@ const TransportListScreen = ({ navigation }) => {
         )}
       </View>
     </TouchableOpacity>
-  );
+    );
+  };
 
   if (loading) {
     return (
@@ -252,7 +291,7 @@ const TransportListScreen = ({ navigation }) => {
         </ScrollView>
 
         {/* Add Button */}
-        {canManage && (
+        {canStartTransport && (
           <TouchableOpacity
             style={{
               backgroundColor: colors.secondary,
@@ -278,7 +317,7 @@ const TransportListScreen = ({ navigation }) => {
           <View style={{ alignItems: 'center', marginTop: 40 }}>
             <MapPin size={64} color={colors.secondary} strokeWidth={1.5} />
             <Text style={{ fontSize: 16, color: colors.secondary, marginTop: 16, textAlign: 'center' }}>
-              {canManage
+              {canStartTransport
                 ? filter === 'all'
                   ? 'Ingen transporter endnu.\nStart din første transport ovenfor.'
                   : `Ingen ${getStatusText(filter).toLowerCase()} transporter.`

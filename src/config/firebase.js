@@ -1,7 +1,8 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { initializeAuth, getAuth, getReactNativePersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   FIREBASE_API_KEY,
   FIREBASE_AUTH_DOMAIN,
@@ -31,8 +32,6 @@ const validateFirebaseConfig = () => {
     console.error('❌ Missing Firebase configuration fields:', missingFields);
     throw new Error(`Missing Firebase configuration: ${missingFields.join(', ')}`);
   }
-
-  console.log('✅ Firebase configuration validated');
 };
 
 // Firebase configuration from .env file
@@ -53,7 +52,6 @@ validateFirebaseConfig();
 let app;
 try {
   app = initializeApp(firebaseConfig);
-  console.log('✅ Firebase app initialized successfully');
 } catch (error) {
   console.error('❌ Firebase initialization failed:', error);
   throw error;
@@ -63,9 +61,19 @@ try {
 let auth, db, storage;
 
 try {
-  // Initialize Auth - uses browser's localStorage for web, AsyncStorage for native
-  auth = getAuth(app);
-  console.log('✅ Firebase Auth initialized');
+  // Initialize Auth with AsyncStorage persistence for React Native
+  // Use getAuth if already initialized (e.g., after hot reload)
+  try {
+    auth = initializeAuth(app, {
+      persistence: getReactNativePersistence(AsyncStorage)
+    });
+  } catch (authError) {
+    if (authError.code === 'auth/already-initialized') {
+      auth = getAuth(app);
+    } else {
+      throw authError;
+    }
+  }
 } catch (error) {
   console.error('❌ Firebase Auth initialization failed:', error);
   throw error;
@@ -74,7 +82,6 @@ try {
 try {
   // Initialize Firestore
   db = getFirestore(app);
-  console.log('✅ Firestore initialized');
 } catch (error) {
   console.error('❌ Firestore initialization failed:', error);
   throw error;
@@ -83,7 +90,6 @@ try {
 try {
   // Initialize Storage
   storage = getStorage(app);
-  console.log('✅ Firebase Storage initialized');
 } catch (error) {
   console.error('❌ Firebase Storage initialization failed:', error);
   throw error;

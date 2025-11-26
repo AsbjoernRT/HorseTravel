@@ -53,21 +53,24 @@ const VehicleSelectionModal = ({ visible, vehicles, selectedVehicle, onSelect, o
 
   const renderVehicle = ({ item }) => {
     const isSelected = selectedVehicle?.id === item.id;
+    const isInUse = item.inUse && !isSelected; // Allow deselecting current selection
     const VehicleIcon = getVehicleIcon(item.vehicleType);
 
     return (
       <Pressable
         style={{
-          backgroundColor: isSelected ? colors.secondary + '20' : colors.white,
+          backgroundColor: isInUse ? '#f5f5f5' : (isSelected ? colors.secondary + '20' : colors.white),
           padding: 16,
           marginBottom: 8,
           borderRadius: 8,
           borderWidth: isSelected ? 2 : 1,
-          borderColor: isSelected ? colors.primary : '#e0e0e0',
+          borderColor: isInUse ? '#ccc' : (isSelected ? colors.primary : '#e0e0e0'),
           flexDirection: 'row',
           alignItems: 'center',
+          opacity: isInUse ? 0.5 : 1,
         }}
-        onPress={() => handleSelect(item)}
+        onPress={() => !isInUse && handleSelect(item)}
+        disabled={isInUse}
       >
         {/* Icon */}
         <View style={{
@@ -83,15 +86,34 @@ const VehicleSelectionModal = ({ visible, vehicles, selectedVehicle, onSelect, o
         </View>
 
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.primary }}>
-            {item.licensePlate}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.primary }}>
+              {item.licensePlate}
+            </Text>
+            {isInUse && (
+              <View style={{
+                backgroundColor: '#ff9800',
+                paddingHorizontal: 6,
+                paddingVertical: 2,
+                borderRadius: 4
+              }}>
+                <Text style={{ fontSize: 10, color: 'white', fontWeight: '600' }}>
+                  I TRANSPORT
+                </Text>
+              </View>
+            )}
+          </View>
           <Text style={{ fontSize: 14, color: '#666', marginTop: 4 }}>
             {item.make} {item.model}
           </Text>
           {item.capacity && (
             <Text style={{ fontSize: 12, color: '#999', marginTop: 2 }}>
               Kapacitet: {item.capacity} heste
+            </Text>
+          )}
+          {item.motInfo?.date && (
+            <Text style={{ fontSize: 12, color: '#999', marginTop: 2 }}>
+              Seneste Syn: {item.motInfo.date}
             </Text>
           )}
         </View>

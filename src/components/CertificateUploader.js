@@ -1,31 +1,134 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Alert, ActivityIndicator, ScrollView, Pressable, Modal, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, ActivityIndicator, ScrollView, Pressable, Modal } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import { Upload, Camera, FileText, Image as ImageIcon, Trash2, Download, File, X } from 'lucide-react-native';
+import { Upload, Camera, FileText, Image as ImageIcon, Trash2, Download, File, RefreshCw } from 'lucide-react-native';
 import { uploadCertificate, getCertificates, deleteCertificate, updateCertificateMetadata } from '../services/documents/certificateService';
+import { extractCertificateData, validateCertificateData } from '../services/documents/certificateParserService';
+import { syncCertificateToOrganization, syncCertificateToVehicle, validateAuthorization } from '../services/documents/certificateSyncService';
 import { colors } from '../styles/theme';
 import Toast from 'react-native-toast-message';
 import { confirmAlert } from '../utils/platformAlerts';
+import CertificateDetailModal from './CertificateDetailModal';
 
 /**
  * Certificate uploader component for organizations and vehicles
  * Supports PDF upload, image upload, and camera capture
+ * @param {boolean} enableAIExtraction - Enable AI-powered data extraction from images
+ * @param {Object} entityData - Optional entity data (organization or vehicle) to pre-populate form
  */
-const CertificateUploader = ({ entityType, entityId, canManage = true }) => {
+const CertificateUploader = ({ entityType, entityId, canManage = true, enableAIExtraction = false, entityData = null }) => {
   const [certificates, setCertificates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [showUploadMenu, setShowUploadMenu] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editingCertificate, setEditingCertificate] = useState(null);
-  const [editName, setEditName] = useState('');
-  const [editType, setEditType] = useState('');
-  const [editNotes, setEditNotes] = useState('');
+  const [pendingAction, setPendingAction] = useState(null);
+  const [selectedCertificate, setSelectedCertificate] = useState(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+
+  // Temporary kill-switch so uploads work while AI OCR is offline
+  const aiExtractionEnabled = enableAIExtraction && false;
+  const shouldLogOcrPreview = enableAIExtraction;
 
   useEffect(() => {
     loadCertificates();
+
+    // Set up real-time listener for certificate updates
+    const unsubscribe = setupCertificateListener();
+
+    // Process any pending certificates
+    processPendingCertificates();
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, [entityType, entityId]);
+
+  // Process certificates that are pending or need retry
+  const processPendingCertificates = async () => {
+    if (!aiExtractionEnabled) {
+      console.log('[CertUploader] AI extraction disabled. Skipping pending processing.');
+      return;
+    }
+    try {
+      const allCerts = await getCertificates(entityType, entityId);
+
+      const pendingCerts = allCerts.filter(cert => {
+        // Process if status is pending or retrying and nextRetryAt has passed
+        if (cert.processingStatus === 'pending') {
+          return true;
+        }
+
+        if (cert.processingStatus === 'retrying' && cert.nextRetryAt) {
+          const nextRetry = new Date(cert.nextRetryAt);
+          return nextRetry <= new Date();
+        }
+
+        return false;
+      });
+
+      console.log(`[CertUploader] Found ${pendingCerts.length} pending certificates to process`);
+
+      // Process each pending certificate
+      for (const cert of pendingCerts) {
+        console.log(`[CertUploader] Resuming processing for certificate: ${cert.id}`);
+
+        // Get the download URL to process the image
+        const downloadUrl = cert.downloadUrl || cert.downloadURL;
+        if (downloadUrl) {
+          const retryCount = cert.retryCount || 0;
+          extractCertificateInBackground(downloadUrl, cert.id, retryCount);
+        }
+      }
+    } catch (error) {
+      console.error('[CertUploader] Error processing pending certificates:', error);
+    }
+  };
+
+  const setupCertificateListener = () => {
+    try {
+      const { getFirestore, collection, query, where, onSnapshot } = require('firebase/firestore');
+      const db = getFirestore();
+
+      const q = query(
+        collection(db, 'certificates'),
+        where('entityType', '==', entityType),
+        where('entityId', '==', entityId)
+      );
+
+      return onSnapshot(q, (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'modified') {
+            const updatedCert = { id: change.doc.id, ...change.doc.data() };
+
+            // Update certificates list
+            setCertificates(prev =>
+              prev.map(cert => cert.id === updatedCert.id ? updatedCert : cert)
+            );
+
+            // Show notification if AI extraction just completed
+            if (updatedCert.hasExtractedData && updatedCert.extractedAt) {
+              const extractedTime = new Date(updatedCert.extractedAt);
+              const now = new Date();
+              const timeDiff = (now - extractedTime) / 1000; // seconds
+
+              // Only show notification if extraction happened in last 5 seconds
+              if (timeDiff < 5) {
+                console.log('[CertUploader] Certificate updated with AI data:', updatedCert.id);
+              }
+            }
+          }
+        });
+      }, (error) => {
+        console.error('[CertUploader] Listener error:', error);
+      });
+    } catch (error) {
+      console.error('[CertUploader] Failed to setup listener:', error);
+      return null;
+    }
+  };
 
   const loadCertificates = async () => {
     try {
@@ -44,34 +147,14 @@ const CertificateUploader = ({ entityType, entityId, canManage = true }) => {
     }
   };
 
-  const requestCameraPermission = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert(
-        'Tilladelse nødvendig',
-        'Vi har brug for adgang til dit kamera for at tage billeder'
-      );
-      return false;
-    }
-    return true;
+
+  const handlePickDocument = () => {
+    setPendingAction('document');
+    setShowUploadMenu(false);
   };
 
-  const requestMediaLibraryPermission = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert(
-        'Tilladelse nødvendig',
-        'Vi har brug for adgang til dit fotobibliotek'
-      );
-      return false;
-    }
-    return true;
-  };
-
-  const handlePickDocument = async () => {
+  const executePickDocument = async () => {
     try {
-      setShowUploadMenu(false);
-
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/pdf', 'image/*'],
         copyToCacheDirectory: true,
@@ -93,29 +176,43 @@ const CertificateUploader = ({ entityType, entityId, canManage = true }) => {
     }
   };
 
-  const handlePickImage = async () => {
-    try {
-      console.log('handlePickImage: Starting...');
-      setShowUploadMenu(false);
+  const onUploadMenuHide = () => {
+    if (pendingAction === 'image') {
+      executePickImage();
+    } else if (pendingAction === 'camera') {
+      executeTakePhoto();
+    } else if (pendingAction === 'document') {
+      executePickDocument();
+    }
+    setPendingAction(null);
+  };
 
-      console.log('handlePickImage: Requesting permission...');
-      const hasPermission = await requestMediaLibraryPermission();
-      console.log('handlePickImage: Permission result:', hasPermission);
-      if (!hasPermission) {
+  const handlePickImage = () => {
+    setPendingAction('image');
+    setShowUploadMenu(false);
+  };
+
+  const executePickImage = async () => {
+    try {
+      // Request permission
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (permissionResult.status !== 'granted') {
+        Alert.alert(
+          'Tilladelse nødvendig',
+          'Vi har brug for adgang til dit fotobibliotek'
+        );
         return;
       }
 
-      console.log('handlePickImage: Launching image picker...');
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: false,
-        quality: 0.8,
+        quality: 0.7, // Reduced for faster upload
+        base64: false,
       });
 
-      console.log('handlePickImage: Result:', result);
-
       if (result.canceled) {
-        console.log('handlePickImage: User canceled');
         return;
       }
 
@@ -126,7 +223,6 @@ const CertificateUploader = ({ entityType, entityId, canManage = true }) => {
         size: result.assets[0].fileSize,
       };
 
-      console.log('handlePickImage: Uploading file:', file);
       await uploadFile(file);
     } catch (error) {
       console.error('Error picking image:', error);
@@ -138,18 +234,26 @@ const CertificateUploader = ({ entityType, entityId, canManage = true }) => {
     }
   };
 
-  const handleTakePhoto = async () => {
-    try {
-      setShowUploadMenu(false);
+  const handleTakePhoto = () => {
+    setPendingAction('camera');
+    setShowUploadMenu(false);
+  };
 
-      const hasPermission = await requestCameraPermission();
-      if (!hasPermission) {
+  const executeTakePhoto = async () => {
+    try {
+      // Request permission
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Tilladelse nødvendig',
+          'Vi har brug for adgang til dit kamera for at tage billeder'
+        );
         return;
       }
 
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: false,
-        quality: 0.8,
+        quality: 0.7, // Reduced for faster upload
       });
 
       if (result.canceled) {
@@ -178,17 +282,22 @@ const CertificateUploader = ({ entityType, entityId, canManage = true }) => {
     try {
       setUploading(true);
 
+      // Upload certificate immediately without OCR
       const certificate = await uploadCertificate(
         file,
         entityType,
         entityId,
         {
           certificateType: file.type?.includes('pdf') ? 'PDF' : 'Billede',
+          // Data will be extracted on-demand by user
+          hasExtractedData: false,
+          processingStatus: 'none',
         }
       );
 
       setCertificates(prev => [certificate, ...prev]);
 
+      // Show success immediately
       Toast.show({
         type: 'success',
         text1: 'Upload lykkedes',
@@ -203,6 +312,235 @@ const CertificateUploader = ({ entityType, entityId, canManage = true }) => {
       });
     } finally {
       setUploading(false);
+    }
+  };
+
+  const previewOcrLocally = async (uri, label) => {
+    if (!uri) {
+      return;
+    }
+
+    try {
+      console.log(`[CertUploader][OCR] Starting ML Kit OCR for ${label || uri}`);
+      const ocrResult = await runLocalCertificateOcr(uri);
+
+      if (ocrResult?.text) {
+        const snippet = ocrResult.text.length > 500
+          ? `${ocrResult.text.slice(0, 500)}...`
+          : ocrResult.text;
+        console.log('[CertUploader][OCR] Recognized text preview:\n', snippet);
+      } else {
+        console.log('[CertUploader][OCR] No text detected in image');
+      }
+    } catch (error) {
+      console.error('[CertUploader][OCR] Failed to run ML Kit:', error);
+    }
+  };
+
+  // Background AI extraction with retry logic
+  const extractCertificateInBackground = async (imageUri, certificateId, retryCount = 0) => {
+    if (!aiExtractionEnabled) {
+      console.log('[CertUploader] AI extraction disabled. Skipping background extraction.');
+      return;
+    }
+    try {
+      console.log(`[CertUploader] Starting AI extraction (attempt ${retryCount + 1})...`);
+      console.log(`[CertUploader] Entity type: ${entityType}`);
+
+      // Update status to processing
+      await updateCertificateMetadata(certificateId, {
+        processingStatus: 'processing',
+        lastAttemptAt: new Date().toISOString(),
+      });
+
+      // Pass entity type to determine which extraction function to use
+      const extractedData = await extractCertificateData(imageUri, entityType);
+
+      console.log('[CertUploader] AI extraction completed:', extractedData);
+
+      // Update certificate with extracted data and mark as completed
+      await updateCertificateMetadata(certificateId, {
+        extractedData: extractedData,
+        hasExtractedData: true,
+        extractedAt: new Date().toISOString(),
+        processingStatus: 'completed',
+        retryCount: retryCount,
+      });
+
+      // Sync to entity (organization or vehicle)
+      if (extractedData) {
+        if (entityType === 'organization') {
+          console.log('[CertUploader] Syncing extracted data to organization...');
+          await syncCertificateToOrganization(entityId, extractedData);
+
+          // Validate the authorization
+          const validation = validateAuthorization(extractedData);
+          if (!validation.isValid) {
+            Toast.show({
+              type: 'warning',
+              text1: 'AI Analyse færdig',
+              text2: validation.errors[0] || 'Certificat kan være ugyldigt',
+              visibilityTime: 5000,
+            });
+          } else if (validation.daysUntilExpiry !== null && validation.daysUntilExpiry < 30) {
+            Toast.show({
+              type: 'warning',
+              text1: 'AI Analyse færdig',
+              text2: `Certificat udløber om ${validation.daysUntilExpiry} dage`,
+              visibilityTime: 5000,
+            });
+          } else {
+            Toast.show({
+              type: 'success',
+              text1: 'AI Analyse færdig',
+              text2: 'Certificat data udtrukket succesfuldt',
+              visibilityTime: 3000,
+            });
+          }
+        } else if (entityType === 'vehicle') {
+          console.log('[CertUploader] Syncing extracted data to vehicle...');
+          await syncCertificateToVehicle(entityId, extractedData);
+
+          // Check expiry for vehicle certificates
+          const expiryDate = extractedData.certificate?.expiry_date;
+          if (expiryDate) {
+            const expiry = new Date(expiryDate);
+            const now = new Date();
+            const daysUntilExpiry = Math.floor((expiry - now) / (1000 * 60 * 60 * 24));
+
+            if (daysUntilExpiry < 0) {
+              Toast.show({
+                type: 'error',
+                text1: 'AI Analyse færdig',
+                text2: 'Certificat er udløbet',
+                visibilityTime: 5000,
+              });
+            } else if (daysUntilExpiry < 30) {
+              Toast.show({
+                type: 'warning',
+                text1: 'AI Analyse færdig',
+                text2: `Certificat udløber om ${daysUntilExpiry} dage`,
+                visibilityTime: 5000,
+              });
+            } else {
+              Toast.show({
+                type: 'success',
+                text1: 'AI Analyse færdig',
+                text2: 'Køretøjscertifikat data udtrukket',
+                visibilityTime: 3000,
+              });
+            }
+          } else {
+            Toast.show({
+              type: 'success',
+              text1: 'AI Analyse færdig',
+              text2: 'Køretøjscertifikat data udtrukket',
+              visibilityTime: 3000,
+            });
+          }
+        } else {
+          Toast.show({
+            type: 'success',
+            text1: 'AI Analyse færdig',
+            text2: 'Certificat data udtrukket succesfuldt',
+            visibilityTime: 3000,
+          });
+        }
+      }
+
+      // Reload certificates to show updated data
+      loadCertificates();
+    } catch (aiError) {
+      console.error(`[CertUploader] AI extraction failed (attempt ${retryCount + 1}):`, aiError);
+
+      // Get certificate to check retry count
+      const certificates = await getCertificates(entityType, entityId);
+      const cert = certificates.find(c => c.id === certificateId);
+
+      if (!cert) {
+        console.error('[CertUploader] Certificate not found for retry');
+        return;
+      }
+
+      const maxRetries = cert.maxRetries || 3;
+      const newRetryCount = retryCount + 1;
+
+      if (newRetryCount < maxRetries) {
+        // Calculate exponential backoff: 2^retryCount * 30 seconds
+        const delaySeconds = Math.pow(2, newRetryCount) * 30;
+
+        console.log(`[CertUploader] Scheduling retry ${newRetryCount + 1}/${maxRetries} in ${delaySeconds}s`);
+
+        // Update status to retrying
+        await updateCertificateMetadata(certificateId, {
+          processingStatus: 'retrying',
+          retryCount: newRetryCount,
+          nextRetryAt: new Date(Date.now() + delaySeconds * 1000).toISOString(),
+          lastError: aiError.message,
+        });
+
+        Toast.show({
+          type: 'info',
+          text1: 'AI Analyse fejlede',
+          text2: `Prøver igen om ${delaySeconds} sekunder (${newRetryCount}/${maxRetries})`,
+          visibilityTime: 4000,
+        });
+
+        // Schedule retry
+        setTimeout(() => {
+          extractCertificateInBackground(imageUri, certificateId, newRetryCount);
+        }, delaySeconds * 1000);
+      } else {
+        // Max retries reached
+        console.error('[CertUploader] Max retries reached for certificate:', certificateId);
+
+        await updateCertificateMetadata(certificateId, {
+          processingStatus: 'failed',
+          retryCount: newRetryCount,
+          lastError: aiError.message,
+          failedAt: new Date().toISOString(),
+        });
+
+        Toast.show({
+          type: 'error',
+          text1: 'AI Analyse fejlede permanent',
+          text2: 'Indtast venligst data manuelt',
+          visibilityTime: 5000,
+        });
+
+        loadCertificates();
+      }
+    }
+  };
+
+  const handleRetry = async (certificate) => {
+    try {
+      // Reset retry count and status
+      await updateCertificateMetadata(certificate.id, {
+        processingStatus: 'pending',
+        retryCount: 0,
+        lastError: null,
+        nextRetryAt: null,
+      });
+
+      Toast.show({
+        type: 'info',
+        text1: 'Genbehandler',
+        text2: 'AI analyse starter igen...',
+      });
+
+      // Start extraction immediately
+      const downloadUrl = certificate.downloadUrl || certificate.downloadURL;
+      if (downloadUrl) {
+        extractCertificateInBackground(downloadUrl, certificate.id, 0);
+      }
+    } catch (error) {
+      console.error('Error retrying certificate:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Fejl',
+        text2: 'Kunne ikke genstarte AI analyse',
+      });
     }
   };
 
@@ -234,45 +572,6 @@ const CertificateUploader = ({ entityType, entityId, canManage = true }) => {
     }
   };
 
-  const handleEdit = (certificate) => {
-    setEditingCertificate(certificate);
-    setEditName(certificate.displayName || certificate.fileName);
-    setEditType(certificate.certificateType || '');
-    setEditNotes(certificate.notes || '');
-    setShowEditModal(true);
-  };
-
-  const handleSaveEdit = async () => {
-    try {
-      await updateCertificateMetadata(editingCertificate.id, {
-        displayName: editName,
-        certificateType: editType,
-        notes: editNotes,
-      });
-
-      setCertificates(prev =>
-        prev.map(c =>
-          c.id === editingCertificate.id
-            ? { ...c, displayName: editName, certificateType: editType, notes: editNotes }
-            : c
-        )
-      );
-
-      setShowEditModal(false);
-      Toast.show({
-        type: 'success',
-        text1: 'Opdateret',
-        text2: 'Certifikat blev opdateret',
-      });
-    } catch (error) {
-      console.error('Error updating certificate:', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Fejl',
-        text2: 'Kunne ikke opdatere certifikat',
-      });
-    }
-  };
 
   const formatFileSize = (bytes) => {
     if (!bytes) return 'N/A';
@@ -362,8 +661,30 @@ const CertificateUploader = ({ entityType, entityId, canManage = true }) => {
         <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={false}>
           {certificates.map((cert) => {
             const FileIcon = getFileIcon(cert.mimeType);
+            const status = cert.processingStatus || 'none';
+            const isProcessing = ['pending', 'processing'].includes(status);
+            const isRetrying = status === 'retrying';
+            const isFailed = status === 'failed';
+            const isCompleted = status === 'completed' && cert.hasExtractedData;
+
+            // Determine border color based on status
+            let borderColor = colors.border;
+            let iconBgColor = colors.primary;
+            if (isProcessing) {
+              borderColor = '#2196f3';
+              iconBgColor = '#2196f3';
+            } else if (isRetrying) {
+              borderColor = '#ff9800';
+              iconBgColor = '#ff9800';
+            } else if (isFailed) {
+              borderColor = '#f44336';
+              iconBgColor = '#f44336';
+            } else if (isCompleted) {
+              borderColor = '#4caf50';
+            }
+
             return (
-              <View
+              <TouchableOpacity
                 key={cert.id}
                 style={{
                   backgroundColor: colors.white,
@@ -371,25 +692,34 @@ const CertificateUploader = ({ entityType, entityId, canManage = true }) => {
                   padding: 16,
                   marginBottom: 12,
                   borderWidth: 1,
-                  borderColor: colors.border,
+                  borderColor: borderColor,
                   shadowColor: '#000',
                   shadowOffset: { width: 0, height: 2 },
                   shadowOpacity: 0.1,
                   shadowRadius: 3.84,
                   elevation: 3,
                 }}
+                onPress={() => {
+                  setSelectedCertificate(cert);
+                  setShowDetailModal(true);
+                }}
+                activeOpacity={0.7}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
                   <View style={{
                     width: 48,
                     height: 48,
                     borderRadius: 24,
-                    backgroundColor: colors.primary,
+                    backgroundColor: iconBgColor,
                     justifyContent: 'center',
                     alignItems: 'center',
                     marginRight: 12,
                   }}>
-                    <FileIcon size={24} color={colors.white} strokeWidth={2} />
+                    {(isProcessing || isRetrying) ? (
+                      <ActivityIndicator size="small" color={colors.white} />
+                    ) : (
+                      <FileIcon size={24} color={colors.white} strokeWidth={2} />
+                    )}
                   </View>
 
                   <View style={{ flex: 1 }}>
@@ -399,6 +729,26 @@ const CertificateUploader = ({ entityType, entityId, canManage = true }) => {
                     {cert.certificateType && (
                       <Text style={{ fontSize: 12, color: colors.primary, marginTop: 2, fontWeight: '500' }}>
                         {cert.certificateType}
+                      </Text>
+                    )}
+                    {isProcessing && (
+                      <Text style={{ fontSize: 12, color: '#2196f3', marginTop: 2, fontWeight: '500' }}>
+                      Transporta analyserer...
+                      </Text>
+                    )}
+                    {isRetrying && (
+                      <Text style={{ fontSize: 12, color: '#ff9800', marginTop: 2, fontWeight: '500' }}>
+                        Prøver igen ({cert.retryCount}/{cert.maxRetries || 3})
+                      </Text>
+                    )}
+                    {isFailed && (
+                      <Text style={{ fontSize: 12, color: '#f44336', marginTop: 2, fontWeight: '500' }}>
+                        Transporta fejlede - indtast manuelt eller prøv igen
+                      </Text>
+                    )}
+                    {isCompleted && (
+                      <Text style={{ fontSize: 12, color: '#4caf50', marginTop: 2, fontWeight: '500' }}>
+                        ✓ AI data udtrukket
                       </Text>
                     )}
                     <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
@@ -413,30 +763,38 @@ const CertificateUploader = ({ entityType, entityId, canManage = true }) => {
 
                   {canManage && (
                     <View style={{ flexDirection: 'row', gap: 8 }}>
-                      <Pressable
-                        style={{
-                          backgroundColor: colors.primary,
-                          padding: 8,
-                          borderRadius: 8,
-                        }}
-                        onPress={() => handleEdit(cert)}
-                      >
-                        <FileText size={16} color={colors.white} />
-                      </Pressable>
+                      {isFailed && (cert.downloadUrl || cert.downloadURL) && (
+                        <Pressable
+                          style={{
+                            backgroundColor: '#ff9800',
+                            padding: 8,
+                            borderRadius: 8,
+                          }}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleRetry(cert);
+                          }}
+                        >
+                          <RefreshCw size={16} color={colors.white} />
+                        </Pressable>
+                      )}
                       <Pressable
                         style={{
                           backgroundColor: '#ffebee',
                           padding: 8,
                           borderRadius: 8,
                         }}
-                        onPress={() => handleDelete(cert)}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleDelete(cert);
+                        }}
                       >
                         <Trash2 size={16} color="#d32f2f" />
                       </Pressable>
                     </View>
                   )}
                 </View>
-              </View>
+              </TouchableOpacity>
             );
           })}
         </ScrollView>
@@ -448,6 +806,7 @@ const CertificateUploader = ({ entityType, entityId, canManage = true }) => {
         transparent={true}
         animationType="fade"
         onRequestClose={() => setShowUploadMenu(false)}
+        onDismiss={onUploadMenuHide}
       >
         <TouchableOpacity
           style={{
@@ -547,127 +906,20 @@ const CertificateUploader = ({ entityType, entityId, canManage = true }) => {
         </TouchableOpacity>
       </Modal>
 
-      {/* Edit Modal */}
-      <Modal
-        visible={showEditModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowEditModal(false)}
-      >
-        <View style={{
-          flex: 1,
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          justifyContent: 'center',
-          alignItems: 'center',
-          padding: 20,
-        }}>
-          <View style={{
-            backgroundColor: colors.white,
-            borderRadius: 16,
-            padding: 20,
-            width: '100%',
-            maxWidth: 400,
-          }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.primary }}>
-                Rediger certifikat
-              </Text>
-              <Pressable onPress={() => setShowEditModal(false)}>
-                <X size={24} color={colors.primary} />
-              </Pressable>
-            </View>
-
-            <View style={{ marginBottom: 12 }}>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: colors.primary, marginBottom: 4 }}>
-                Navn
-              </Text>
-              <TextInput
-                style={{
-                  backgroundColor: '#f5f5f5',
-                  padding: 12,
-                  borderRadius: 8,
-                  fontSize: 16,
-                  color: colors.primary,
-                }}
-                placeholder="Certifikat navn"
-                value={editName}
-                onChangeText={setEditName}
-              />
-            </View>
-
-            <View style={{ marginBottom: 12 }}>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: colors.primary, marginBottom: 4 }}>
-                Type
-              </Text>
-              <TextInput
-                style={{
-                  backgroundColor: '#f5f5f5',
-                  padding: 12,
-                  borderRadius: 8,
-                  fontSize: 16,
-                  color: colors.primary,
-                }}
-                placeholder="F.eks. Forsikring, Syn, etc."
-                value={editType}
-                onChangeText={setEditType}
-              />
-            </View>
-
-            <View style={{ marginBottom: 16 }}>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: colors.primary, marginBottom: 4 }}>
-                Noter
-              </Text>
-              <TextInput
-                style={{
-                  backgroundColor: '#f5f5f5',
-                  padding: 12,
-                  borderRadius: 8,
-                  fontSize: 16,
-                  color: colors.primary,
-                  minHeight: 80,
-                }}
-                placeholder="Tilføj noter..."
-                value={editNotes}
-                onChangeText={setEditNotes}
-                multiline
-                textAlignVertical="top"
-              />
-            </View>
-
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <TouchableOpacity
-                style={{
-                  flex: 1,
-                  padding: 12,
-                  borderRadius: 12,
-                  backgroundColor: '#f5f5f5',
-                  alignItems: 'center',
-                }}
-                onPress={() => setShowEditModal(false)}
-              >
-                <Text style={{ fontSize: 16, fontWeight: '600', color: '#666' }}>
-                  Annuller
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={{
-                  flex: 1,
-                  padding: 12,
-                  borderRadius: 12,
-                  backgroundColor: colors.primary,
-                  alignItems: 'center',
-                }}
-                onPress={handleSaveEdit}
-              >
-                <Text style={{ fontSize: 16, fontWeight: '600', color: colors.white }}>
-                  Gem
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {/* Certificate Detail Modal */}
+      <CertificateDetailModal
+        visible={showDetailModal}
+        certificate={selectedCertificate}
+        entityType={entityType}
+        entityData={entityData}
+        onClose={() => {
+          setShowDetailModal(false);
+          setSelectedCertificate(null);
+        }}
+        onUpdate={() => {
+          loadCertificates();
+        }}
+      />
     </View>
   );
 };

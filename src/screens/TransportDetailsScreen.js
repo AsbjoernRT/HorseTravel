@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Modal, Pressable } from 'react-native';
 import { MapPin, Calendar, Clock, Users, Truck, Heart, FileText, Phone, Mail, Play, X, Caravan, Pause, CheckCircle } from 'lucide-react-native';
 import { getTransport, updateTransport } from '../services/transportService';
@@ -6,6 +6,9 @@ import { getHorses } from '../services/horseService';
 import { theme, colors } from '../styles/theme';
 import { useOrganization } from '../context/OrganizationContext';
 import { useTransport } from '../context/TransportContext';
+import { calculateDuration, formatDateTime } from '../utils/timeUtils';
+import ComplianceChecklist from '../components/ComplianceChecklist';
+import { checkCompliance } from '../services/transportRegulationsService';
 
 // Displays comprehensive details for a specific transport
 const TransportDetailsScreen = ({ navigation, route }) => {
@@ -18,12 +21,50 @@ const TransportDetailsScreen = ({ navigation, route }) => {
   const [showStopModal, setShowStopModal] = useState(false);
   const [startingTransport, setStartingTransport] = useState(false);
   const [stoppingTransport, setStoppingTransport] = useState(false);
+  const [elapsedTime, setElapsedTime] = useState(null);
+  const [estimatedArrival, setEstimatedArrival] = useState(null);
 
   const canManage = activeMode === 'private' || hasPermission('canManageTours');
 
   useEffect(() => {
     loadTransportDetails();
   }, [transportId]);
+
+  // Update elapsed time and estimated arrival every minute for active transports
+  useEffect(() => {
+    if (transport?.status === 'active' && transport?.actualStartTime) {
+      // Update immediately
+      const updateTimeInfo = () => {
+        const duration = calculateDuration(transport.actualStartTime);
+        setElapsedTime(duration.formatted);
+
+        // Calculate estimated arrival time based on route duration
+        if (transport.routeInfo?.duration) {
+          const startTime = new Date(transport.actualStartTime);
+          const estimatedArrivalTime = new Date(startTime.getTime() + (transport.routeInfo.duration * 1000));
+
+          // Check if arrival time is in the past
+          const now = new Date();
+          if (estimatedArrivalTime < now) {
+            const overdueDuration = calculateDuration(estimatedArrivalTime.toISOString());
+            setEstimatedArrival(`Forsinket med ${overdueDuration.formatted}`);
+          } else {
+            setEstimatedArrival(formatDateTime(estimatedArrivalTime.toISOString()));
+          }
+        } else {
+          setEstimatedArrival(null);
+        }
+      };
+      updateTimeInfo();
+
+      // Then update every minute
+      const interval = setInterval(updateTimeInfo, 60000);
+      return () => clearInterval(interval);
+    } else {
+      setElapsedTime(null);
+      setEstimatedArrival(null);
+    }
+  }, [transport?.status, transport?.actualStartTime, transport?.routeInfo?.duration]);
 
   const loadTransportDetails = async () => {
     try {
@@ -95,16 +136,24 @@ const TransportDetailsScreen = ({ navigation, route }) => {
       setStartingTransport(true);
 
       // Update transport status to active
+      const now = new Date();
       const updatedTransport = {
         ...transport,
         status: 'active',
+        actualStartTime: now.toISOString(), // Always track when transport actually started
       };
 
-      // If starting now (not from scheduled time), update departure date/time
+      // If starting now (not from scheduled time), update departure date/time and recalculate arrival
       if (!startFromScheduledTime) {
-        const now = new Date();
         updatedTransport.departureDate = now.toISOString().split('T')[0];
         updatedTransport.departureTime = now.toTimeString().split(' ')[0].substring(0, 5);
+
+        // Recalculate estimated arrival based on route duration
+        if (transport.routeInfo?.duration) {
+          const estimatedArrival = new Date(now.getTime() + (transport.routeInfo.duration * 1000));
+          updatedTransport.estimatedArrivalDate = estimatedArrival.toISOString().split('T')[0];
+          updatedTransport.estimatedArrivalTime = estimatedArrival.toTimeString().split(' ')[0].substring(0, 5);
+        }
       }
 
       await updateTransport(transportId, updatedTransport);
@@ -149,6 +198,7 @@ const TransportDetailsScreen = ({ navigation, route }) => {
         const now = new Date();
         updatedTransport.arrivalDate = now.toISOString().split('T')[0];
         updatedTransport.arrivalTime = now.toTimeString().split(' ')[0].substring(0, 5);
+        updatedTransport.actualEndTime = now.toISOString(); // Track actual end time
       }
 
       await updateTransport(transportId, updatedTransport);
@@ -210,6 +260,30 @@ const TransportDetailsScreen = ({ navigation, route }) => {
               Transport #{transport.id.substring(0, 8)}
             </Text>
           </View>
+
+          {/* Elapsed Time for Active Transport */}
+          {transport.status === 'active' && elapsedTime && (
+            <View style={{
+              backgroundColor: '#e8f5e9',
+              padding: 12,
+              borderRadius: 8,
+              borderLeftWidth: 4,
+              borderLeftColor: '#4CAF50',
+              marginTop: 12,
+            }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Clock size={18} color="#4CAF50" strokeWidth={2.5} />
+                <Text style={{ fontSize: 14, color: '#2e7d32', fontWeight: '600' }}>
+                  Transport i gang: {elapsedTime}
+                </Text>
+              </View>
+              {transport.actualStartTime && (
+                <Text style={{ fontSize: 12, color: '#666', marginTop: 4, marginLeft: 26 }}>
+                  Startet: {formatDateTime(transport.actualStartTime)}
+                </Text>
+              )}
+            </View>
+          )}
         </View>
 
         {/* Route Information */}
@@ -301,12 +375,37 @@ const TransportDetailsScreen = ({ navigation, route }) => {
             </View>
           </View>
 
+          {/* Estimated Arrival for Active Transport */}
+          {transport.status === 'active' && estimatedArrival && (
+            <View style={{
+              marginTop: 12,
+              paddingTop: 12,
+              borderTopWidth: 1,
+              borderTopColor: '#eee'
+            }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <Clock size={20} color={estimatedArrival.startsWith('Forsinket') ? '#d32f2f' : '#4CAF50'} />
+                <View>
+                  <Text style={{ fontSize: 12, color: '#666' }}>Forventet ankomst</Text>
+                  <Text style={{
+                    fontSize: 16,
+                    fontWeight: '600',
+                    color: estimatedArrival.startsWith('Forsinket') ? '#d32f2f' : '#333'
+                  }}>
+                    {estimatedArrival}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Actual/Planned Arrival */}
           {transport.arrivalDate && (
-            <View style={{ 
-              marginTop: 12, 
-              paddingTop: 12, 
-              borderTopWidth: 1, 
-              borderTopColor: '#eee' 
+            <View style={{
+              marginTop: 12,
+              paddingTop: 12,
+              borderTopWidth: 1,
+              borderTopColor: '#eee'
             }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                 <Calendar size={20} color="#666" />
@@ -405,7 +504,7 @@ const TransportDetailsScreen = ({ navigation, route }) => {
 
                   {horse.breed && (
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 26, marginTop: 4 }}>
-                      <Text style={{ fontSize: 13, color: '#666', fontWeight: '600' }}>Forbund: </Text>
+                      <Text style={{ fontSize: 13, color: '#666', fontWeight: '600' }}>Oprindelse: </Text>
                       <Text style={{ fontSize: 13, color: '#666' }}>{horse.breed}</Text>
                     </View>
                   )}
@@ -476,6 +575,17 @@ const TransportDetailsScreen = ({ navigation, route }) => {
           </View>
         )}
 
+        {/* Compliance Status */}
+        {transport.complianceRequirements && (
+          <View style={{ marginBottom: 16 }}>
+            <ComplianceChecklist
+              requirements={transport.complianceRequirements}
+              confirmedDocuments={transport.confirmedDocuments || []}
+              editable={false}
+            />
+          </View>
+        )}
+
         {/* Notes */}
         {transport.notes && (
           <View style={{
@@ -487,7 +597,7 @@ const TransportDetailsScreen = ({ navigation, route }) => {
             <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.primary, marginBottom: 12 }}>
               Noter
             </Text>
-            
+
             <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
               <FileText size={20} color={colors.primary} style={{ marginTop: 2 }} />
               <Text style={{ fontSize: 16, lineHeight: 24, flex: 1 }}>

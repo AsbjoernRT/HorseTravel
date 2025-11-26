@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Pressable, FlatList, Alert, ActivityIndicator, ScrollView, Modal } from 'react-native';
-import { Truck, Plus, Edit2, Trash2, Search, ArrowUpDown, ChevronDown, Car, CarFront, Caravan, FileText } from 'lucide-react-native';
+import { Truck, Plus, Edit2, Trash2, Search, ArrowUpDown, ChevronDown, Car, CarFront, Caravan, FileText, CheckCircle } from 'lucide-react-native';
 import { createVehicle, getVehicles, updateVehicle, deleteVehicle, getVehicleByLicensePlate } from '../services/vehicleService';
 import { fetchVehicleFromRegistry } from '../services/motorApiService';
+import { getTransportsByStatus } from '../services/transportService';
 import { useOrganization } from '../context/OrganizationContext';
 import { theme, colors } from '../styles/theme';
 import { confirmAlert, showAlert } from '../utils/platformAlerts';
 import Toast from 'react-native-toast-message';
 import CertificateUploader from '../components/CertificateUploader';
+import { getCertificates } from '../services/documents/certificateService';
 
 // CRUD hub for the vehicle fleet, respecting mode-based permissions.
 const VehicleManagementScreen = ({ navigation, route }) => {
@@ -78,8 +80,43 @@ const VehicleManagementScreen = ({ navigation, route }) => {
   const loadVehicles = async () => {
     try {
       setLoading(true);
-      const data = await getVehicles(activeMode, activeOrganization?.id);
-      setVehicles(data);
+      const [vehiclesData, activeTransports] = await Promise.all([
+        getVehicles(activeMode, activeOrganization?.id),
+        getTransportsByStatus('active', activeMode, activeOrganization?.id),
+      ]);
+
+      // Mark vehicles that are in active transports
+      const usedVehicleIds = new Set();
+      const usedTrailerIds = new Set();
+      activeTransports.forEach(transport => {
+        if (transport.vehicleId) usedVehicleIds.add(transport.vehicleId);
+        if (transport.trailerId) usedTrailerIds.add(transport.trailerId);
+      });
+
+      // Fetch certificate counts for all vehicles
+      const vehiclesWithCertCounts = await Promise.all(
+        vehiclesData.map(async (v) => {
+          try {
+            const certificates = await getCertificates('vehicle', v.id);
+            return {
+              ...v,
+              inTransport: usedVehicleIds.has(v.id) || usedTrailerIds.has(v.id),
+              certificateCount: certificates.length,
+            };
+          } catch (error) {
+            console.error(`Error fetching certificates for vehicle ${v.id}:`, error);
+            return {
+              ...v,
+              inTransport: usedVehicleIds.has(v.id) || usedTrailerIds.has(v.id),
+              certificateCount: 0,
+            };
+          }
+        })
+      );
+
+      const vehiclesWithStatus = vehiclesWithCertCounts;
+
+      setVehicles(vehiclesWithStatus);
     } catch (error) {
       console.error('Error loading vehicles:', error);
       Alert.alert('Fejl', 'Kunne ikke indlæse køretøjer');
@@ -313,7 +350,29 @@ const VehicleManagementScreen = ({ navigation, route }) => {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        position: 'relative',
       }}>
+        {/* Dokumenter Badge - Top Right */}
+        {item.certificateCount > 0 && (
+          <View style={{
+            position: 'absolute',
+            top: 12,
+            right: 12,
+            backgroundColor: '#4caf50',
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderRadius: 12,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 4,
+          }}>
+            <CheckCircle size={12} color="white" strokeWidth={2.5} />
+            <Text style={{ fontSize: 10, color: 'white', fontWeight: '600' }}>
+              Dokumenter
+            </Text>
+          </View>
+        )}
+
         {/* Icon */}
         <View style={{
           width: 48,
@@ -328,9 +387,23 @@ const VehicleManagementScreen = ({ navigation, route }) => {
         </View>
 
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.primary }}>
-            {item.licensePlate}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.primary }}>
+              {item.licensePlate}
+            </Text>
+            {item.inTransport && (
+              <View style={{
+                backgroundColor: '#ff9800',
+                paddingHorizontal: 6,
+                paddingVertical: 2,
+                borderRadius: 4
+              }}>
+                <Text style={{ fontSize: 10, color: 'white', fontWeight: '600' }}>
+                  I TRANSPORT
+                </Text>
+              </View>
+            )}
+          </View>
           <Text style={{ fontSize: 14, color: '#666', marginTop: 4 }}>
             {item.make} {item.model}
             {item.variant ? ` ${item.variant}` : ''}
@@ -349,6 +422,11 @@ const VehicleManagementScreen = ({ navigation, route }) => {
           {item.capacity && (
             <Text style={{ fontSize: 12, color: '#999', marginTop: 2 }}>
               Kapacitet: {item.capacity} heste
+            </Text>
+          )}
+          {item.motInfo?.date && (
+            <Text style={{ fontSize: 12, color: '#999', marginTop: 2 }}>
+              Seneste Syn: {item.motInfo.date}
             </Text>
           )}
         </View>
@@ -452,6 +530,7 @@ const VehicleManagementScreen = ({ navigation, route }) => {
               <CertificateUploader
                 entityType="vehicle"
                 entityId={showCertificates.id}
+                entityData={showCertificates}
                 canManage={canManage}
               />
             )}
@@ -502,6 +581,7 @@ const VehicleManagementScreen = ({ navigation, route }) => {
                 <CertificateUploader
                   entityType="vehicle"
                   entityId={newlyCreatedVehicle.id}
+                  entityData={newlyCreatedVehicle}
                   canManage={canManage}
                 />
 
@@ -709,6 +789,7 @@ const VehicleManagementScreen = ({ navigation, route }) => {
                 <CertificateUploader
                   entityType="vehicle"
                   entityId={editingVehicle.id}
+                  entityData={editingVehicle}
                   canManage={canManage}
                 />
               </View>

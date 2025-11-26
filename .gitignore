@@ -51,3 +51,8 @@ firebaseSDK.js
 
 # Firebase credentials - NEVER COMMIT
 *firebase-adminsdk*.json
+.env
+functions/.env
+
+# Debug/log exports
+data.json

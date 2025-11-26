@@ -14,6 +14,7 @@ module.exports = function(api) {
         safe: false,
         allowUndefined: true
       }],
+      'react-native-worklets-core/plugin',
       'react-native-reanimated/plugin',
     ]
   };
