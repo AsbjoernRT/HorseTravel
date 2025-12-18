@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, Modal, TextInput, FlatList, TouchableOpacity, Pressable } from 'react-native';
 import { X, Search, Truck, Car, CarFront, Caravan } from 'lucide-react-native';
-import { colors } from '../styles/theme';
+import { colors } from '../../styles/theme';
 
 // Modal picker that surfaces the vehicle list with search, filtering, and management shortcuts.
 const VehicleSelectionModal = ({ visible, vehicles, selectedVehicle, onSelect, onClose, onManageVehicles, isTrailerSelection = false }) => {

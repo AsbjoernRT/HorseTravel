@@ -5,7 +5,7 @@
  * Automatically checks off requirements based on available certificates
  */
 
-import { getCertificates } from './documents/certificateService';
+import { getCertificates } from './certificateService';
 
 /**
  * Document type mappings between certificate types and compliance requirement IDs

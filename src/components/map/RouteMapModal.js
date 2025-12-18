@@ -2,9 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Modal, TouchableOpacity, Platform } from 'react-native';
 import MapView, { Polyline, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { X, Plus, Minus, Maximize2 } from 'lucide-react-native';
-import { colors } from '../styles/theme';
-import { loadGoogleMapsAPI } from '../utils/googleMapsLoader';
-import { decodePolyline } from '../utils/polylineDecoder';
+import { colors } from '../../styles/theme';
+import { loadGoogleMapsAPI } from '../../utils/googleMapsLoader';
+import { decodePolyline } from '../../utils/polylineDecoder';
 
 // On-demand modal that previews the planned Google Maps route and highlights border crossings.
 const RouteMapModal = ({ visible, onClose, routeInfo, fromLocation, toLocation }) => {
@@ -176,7 +176,7 @@ const RouteMapModal = ({ visible, onClose, routeInfo, fromLocation, toLocation }
           <View style={{ flex: 1, position: 'relative' }}>
             <MapView
               ref={nativeMapRef}
-              provider={PROVIDER_GOOGLE}
+              provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
               style={{ flex: 1 }}
               initialRegion={
                 routeCoordinates.length > 0

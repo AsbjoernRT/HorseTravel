@@ -12,17 +12,55 @@ import {
   Platform,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { X, Sparkles, Edit3, Save } from 'lucide-react-native';
-import { colors } from '../styles/theme';
-import { extractCertificateData } from '../services/documents/certificateParserService';
-import { updateCertificateData } from '../services/documents/certificateService';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { X, Sparkles, Edit3, Save, Calendar } from 'lucide-react-native';
+import { colors } from '../../styles/theme';
+import { extractCertificateData } from '../../services/documents/certificateParserService';
+import { updateCertificateData } from '../../services/documents/certificateService';
 import Toast from 'react-native-toast-message';
+
+// Helper to parse date string (DD-MM-YYYY) to Date object
+const parseDate = (dateStr) => {
+  if (!dateStr) return null;
+  // Handle various formats
+  const formats = [
+    /^(\d{2})-(\d{2})-(\d{4})$/, // DD-MM-YYYY
+    /^(\d{4})-(\d{2})-(\d{2})$/, // YYYY-MM-DD
+  ];
+
+  for (const regex of formats) {
+    const match = dateStr.match(regex);
+    if (match) {
+      if (regex === formats[0]) {
+        // DD-MM-YYYY
+        return new Date(parseInt(match[3]), parseInt(match[2]) - 1, parseInt(match[1]));
+      } else {
+        // YYYY-MM-DD
+        return new Date(parseInt(match[1]), parseInt(match[2]) - 1, parseInt(match[3]));
+      }
+    }
+  }
+  return null;
+};
+
+// Helper to format Date to DD-MM-YYYY string
+const formatDate = (date) => {
+  if (!date) return '';
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}-${month}-${year}`;
+};
 
 const CertificateDetailModal = ({ visible, certificate, onClose, onUpdate, entityType, entityData }) => {
   const [extracting, setExtracting] = useState(false);
   const [mode, setMode] = useState(null); // null | 'extract' | 'manual' | 'view'
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+
+  // Date picker state
+  const [showIssueDatePicker, setShowIssueDatePicker] = useState(false);
+  const [showExpiryDatePicker, setShowExpiryDatePicker] = useState(false);
 
   // General fields
   const [displayName, setDisplayName] = useState('');
@@ -64,40 +102,80 @@ const CertificateDetailModal = ({ visible, certificate, onClose, onUpdate, entit
   // Get document types for current entity type
   const DOCUMENT_TYPES = ALL_DOCUMENT_TYPES[entityType] || ALL_DOCUMENT_TYPES.organization;
 
-  // Initialize form with existing certificate data
+  // Reset form state when modal opens/closes or certificate changes
   React.useEffect(() => {
+    if (!visible) {
+      // Reset all state when modal closes
+      setMode(null);
+      setIsEditing(false);
+      setDisplayName('');
+      setDocumentType('');
+      setNotes('');
+      setHolderName('');
+      setCertificateNumber('');
+      setIssueDate('');
+      setExpiryDate('');
+      setAdditionalInfo('');
+      setShowIssueDatePicker(false);
+      setShowExpiryDatePicker(false);
+      return;
+    }
+
     if (certificate) {
+      console.log('[CertDetailModal] Initializing with certificate:', certificate.id);
+      console.log('[CertDetailModal] Has extractedData:', !!certificate.extractedData);
+
       setDisplayName(certificate.displayName || certificate.fileName || '');
       setDocumentType(certificate.documentType || certificate.extractedData?.document_type || '');
       setNotes(certificate.notes || '');
 
       // If certificate already has extracted data, pre-fill form and set to view mode
       if (certificate.extractedData) {
-        // Map old data structure to new generic fields
-        if (certificate.extractedData.company) {
-          setHolderName(certificate.extractedData.company.name || '');
-          setCertificateNumber(certificate.extractedData.authorisation?.authorisation_number || '');
-          setIssueDate(certificate.extractedData.authorisation?.issue_date || '');
-          setExpiryDate(certificate.extractedData.authorisation?.expiry_date || '');
-          setAdditionalInfo(certificate.extractedData.authorisation?.journey_type ? `Rejsetype: ${certificate.extractedData.authorisation.journey_type}` : '');
-          setMode('view');
-        } else if (certificate.extractedData.vehicle) {
-          const vehicleInfo = `${certificate.extractedData.vehicle.make || ''} ${certificate.extractedData.vehicle.model || ''}`.trim();
-          setHolderName(certificate.extractedData.vehicle.registration_number || vehicleInfo);
-          setCertificateNumber(certificate.extractedData.certificate?.certificate_number || '');
-          setExpiryDate(certificate.extractedData.certificate?.expiry_date || '');
-          setAdditionalInfo(certificate.extractedData.vehicle.vin ? `VIN: ${certificate.extractedData.vehicle.vin}` : '');
-          setMode('view');
-        } else if (certificate.extractedData.horse) {
-          setHolderName(certificate.extractedData.horse?.name || '');
-          setCertificateNumber(certificate.extractedData.horse?.passport_number || '');
-          setExpiryDate(certificate.extractedData.horse?.expiry_date || '');
-          setAdditionalInfo(certificate.extractedData.horse?.chip_number ? `Chip: ${certificate.extractedData.horse.chip_number}` : '');
+        const data = certificate.extractedData;
+        console.log('[CertDetailModal] ExtractedData keys:', Object.keys(data));
+
+        // Check for new flat structure first (generic fields)
+        if (data.holder_name || data.certificate_number || data.expiry_date) {
+          console.log('[CertDetailModal] Using flat structure');
+          setHolderName(data.holder_name || '');
+          setCertificateNumber(data.certificate_number || '');
+          setIssueDate(data.issue_date || '');
+          setExpiryDate(data.expiry_date || '');
+          setAdditionalInfo(data.additional_info || '');
           setMode('view');
         }
+        // Map old nested data structure to new generic fields
+        else if (data.company) {
+          console.log('[CertDetailModal] Using company structure');
+          setHolderName(data.company.name || '');
+          setCertificateNumber(data.authorisation?.authorisation_number || '');
+          setIssueDate(data.authorisation?.issue_date || '');
+          setExpiryDate(data.authorisation?.expiry_date || '');
+          setAdditionalInfo(data.authorisation?.journey_type ? `Rejsetype: ${data.authorisation.journey_type}` : '');
+          setMode('view');
+        } else if (data.vehicle) {
+          console.log('[CertDetailModal] Using vehicle structure');
+          const vehicleInfo = `${data.vehicle.make || ''} ${data.vehicle.model || ''}`.trim();
+          setHolderName(data.vehicle.registration_number || vehicleInfo);
+          setCertificateNumber(data.certificate?.certificate_number || '');
+          setExpiryDate(data.certificate?.expiry_date || '');
+          setAdditionalInfo(data.vehicle.vin ? `VIN: ${data.vehicle.vin}` : '');
+          setMode('view');
+        } else if (data.horse) {
+          console.log('[CertDetailModal] Using horse structure');
+          setHolderName(data.horse?.name || '');
+          setCertificateNumber(data.horse?.passport_number || '');
+          setExpiryDate(data.horse?.expiry_date || '');
+          setAdditionalInfo(data.horse?.chip_number ? `Chip: ${data.horse.chip_number}` : '');
+          setMode('view');
+        } else {
+          console.log('[CertDetailModal] No matching structure found, mode stays null');
+        }
+      } else {
+        console.log('[CertDetailModal] No extractedData, showing action buttons');
       }
     }
-  }, [certificate]);
+  }, [certificate, visible]);
 
   if (!certificate) return null;
 
@@ -232,7 +310,7 @@ const CertificateDetailModal = ({ visible, certificate, onClose, onUpdate, entit
         });
 
         if (onUpdate) onUpdate();
-        setIsEditing(false);
+        onClose();
         return;
       }
 
@@ -468,50 +546,110 @@ const CertificateDetailModal = ({ visible, certificate, onClose, onUpdate, entit
 
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Udstedelsesdato</Text>
-                <TextInput
-                  style={[styles.input, (mode === 'view' && !isEditing) && styles.inputReadOnly]}
-                  value={issueDate}
-                  onChangeText={(text) => {
-                    // Auto-format date as user types (DD-MM-YYYY)
-                    let formatted = text.replace(/[^\d-]/g, '');
-                    if (formatted.length >= 2 && formatted[2] !== '-') {
-                      formatted = formatted.slice(0, 2) + '-' + formatted.slice(2);
-                    }
-                    if (formatted.length >= 5 && formatted[5] !== '-') {
-                      formatted = formatted.slice(0, 5) + '-' + formatted.slice(5);
-                    }
-                    formatted = formatted.slice(0, 10);
-                    setIssueDate(formatted);
-                  }}
-                  placeholder="DD-MM-ÅÅÅÅ (f.eks. 15-01-2024)"
-                  placeholderTextColor={colors.textSecondary}
-                  keyboardType="numbers-and-punctuation"
-                  editable={mode !== 'view' || isEditing}
-                />
+                <TouchableOpacity
+                  style={[
+                    styles.dateInput,
+                    (mode === 'view' && !isEditing) && styles.inputReadOnly
+                  ]}
+                  onPress={() => (mode !== 'view' || isEditing) && setShowIssueDatePicker(true)}
+                  disabled={mode === 'view' && !isEditing}
+                >
+                  <Text style={[
+                    styles.dateInputText,
+                    !issueDate && styles.dateInputPlaceholder
+                  ]}>
+                    {issueDate || 'Vælg dato...'}
+                  </Text>
+                  <Calendar size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
+                {showIssueDatePicker && (
+                  Platform.OS === 'ios' ? (
+                    <View style={styles.datePickerContainer}>
+                      <View style={styles.datePickerHeader}>
+                        <TouchableOpacity onPress={() => setShowIssueDatePicker(false)}>
+                          <Text style={styles.datePickerDone}>Færdig</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <DateTimePicker
+                        value={parseDate(issueDate) || new Date()}
+                        mode="date"
+                        display="spinner"
+                        onChange={(event, selectedDate) => {
+                          if (selectedDate) {
+                            setIssueDate(formatDate(selectedDate));
+                          }
+                        }}
+                        locale="da-DK"
+                      />
+                    </View>
+                  ) : (
+                    <DateTimePicker
+                      value={parseDate(issueDate) || new Date()}
+                      mode="date"
+                      display="default"
+                      onChange={(event, selectedDate) => {
+                        setShowIssueDatePicker(false);
+                        if (event.type === 'set' && selectedDate) {
+                          setIssueDate(formatDate(selectedDate));
+                        }
+                      }}
+                    />
+                  )
+                )}
               </View>
 
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Udløbsdato *</Text>
-                <TextInput
-                  style={[styles.input, (mode === 'view' && !isEditing) && styles.inputReadOnly]}
-                  value={expiryDate}
-                  onChangeText={(text) => {
-                    // Auto-format date as user types (DD-MM-YYYY)
-                    let formatted = text.replace(/[^\d-]/g, '');
-                    if (formatted.length >= 2 && formatted[2] !== '-') {
-                      formatted = formatted.slice(0, 2) + '-' + formatted.slice(2);
-                    }
-                    if (formatted.length >= 5 && formatted[5] !== '-') {
-                      formatted = formatted.slice(0, 5) + '-' + formatted.slice(5);
-                    }
-                    formatted = formatted.slice(0, 10);
-                    setExpiryDate(formatted);
-                  }}
-                  placeholder="DD-MM-ÅÅÅÅ (f.eks. 31-12-2025)"
-                  placeholderTextColor={colors.textSecondary}
-                  keyboardType="numbers-and-punctuation"
-                  editable={mode !== 'view' || isEditing}
-                />
+                <TouchableOpacity
+                  style={[
+                    styles.dateInput,
+                    (mode === 'view' && !isEditing) && styles.inputReadOnly
+                  ]}
+                  onPress={() => (mode !== 'view' || isEditing) && setShowExpiryDatePicker(true)}
+                  disabled={mode === 'view' && !isEditing}
+                >
+                  <Text style={[
+                    styles.dateInputText,
+                    !expiryDate && styles.dateInputPlaceholder
+                  ]}>
+                    {expiryDate || 'Vælg dato...'}
+                  </Text>
+                  <Calendar size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
+                {showExpiryDatePicker && (
+                  Platform.OS === 'ios' ? (
+                    <View style={styles.datePickerContainer}>
+                      <View style={styles.datePickerHeader}>
+                        <TouchableOpacity onPress={() => setShowExpiryDatePicker(false)}>
+                          <Text style={styles.datePickerDone}>Færdig</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <DateTimePicker
+                        value={parseDate(expiryDate) || new Date()}
+                        mode="date"
+                        display="spinner"
+                        onChange={(event, selectedDate) => {
+                          if (selectedDate) {
+                            setExpiryDate(formatDate(selectedDate));
+                          }
+                        }}
+                        locale="da-DK"
+                      />
+                    </View>
+                  ) : (
+                    <DateTimePicker
+                      value={parseDate(expiryDate) || new Date()}
+                      mode="date"
+                      display="default"
+                      onChange={(event, selectedDate) => {
+                        setShowExpiryDatePicker(false);
+                        if (event.type === 'set' && selectedDate) {
+                          setExpiryDate(formatDate(selectedDate));
+                        }
+                      }}
+                    />
+                  )
+                )}
               </View>
 
               <View style={styles.inputGroup}>
@@ -605,6 +743,9 @@ const styles = StyleSheet.create({
     color: colors.black,
   },
   changeMethodButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
@@ -702,6 +843,44 @@ const styles = StyleSheet.create({
   inputReadOnly: {
     backgroundColor: colors.secondary,
     color: colors.textSecondary,
+  },
+  dateInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: 12,
+    backgroundColor: colors.white,
+  },
+  dateInputText: {
+    fontSize: 16,
+    color: colors.black,
+  },
+  dateInputPlaceholder: {
+    color: colors.textSecondary,
+  },
+  datePickerContainer: {
+    backgroundColor: colors.white,
+    borderRadius: 8,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  datePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.secondary,
+  },
+  datePickerDone: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.primary,
   },
   saveButton: {
     flexDirection: 'row',

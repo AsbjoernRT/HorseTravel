@@ -21,14 +21,20 @@ Hvis du bliver spurgt om emner uden for hestetransport, så henled venligt samta
   /**
    * Send a message to the chatbot
    * @param {Array} messages - Array of message objects {role: 'user'|'assistant', content: string}
-   * @param {string} customSystemPrompt - Optional custom system prompt
+   * @param {Object} options - Optional configuration
+   * @param {string} options.customSystemPrompt - Optional custom system prompt
+   * @param {string} options.activeMode - 'private' or 'organization'
+   * @param {string} options.activeOrganizationId - Organization ID if in organization mode
    * @returns {Promise<Object>} Response with message and usage info
    */
-  async sendMessage(messages, customSystemPrompt = null) {
+  async sendMessage(messages, options = {}) {
+    const { customSystemPrompt, activeMode, activeOrganizationId } = options;
     try {
       const result = await this.chatbotFunction({
         messages,
         systemPrompt: customSystemPrompt || this.systemPrompt,
+        activeMode,
+        activeOrganizationId,
       });
 
       return {

@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Modal, FlatList, ActivityIndicator } from 'react-native';
 import { ChevronDown, Building2, User, Settings } from 'lucide-react-native';
-import { useOrganization } from '../context/OrganizationContext';
+import { useOrganization } from '../../context/OrganizationContext';
 import { useNavigation } from '@react-navigation/native';
-import { theme, colors } from '../styles/theme';
+import { theme, colors } from '../../styles/theme';
 
 // Control that lets the user jump between private mode and any joined organizations...
 const ModeSwitcher = () => {

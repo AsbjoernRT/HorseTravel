@@ -1,10 +1,10 @@
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { Pencil, Trash2 } from 'lucide-react-native';
-import { colors } from '../styles/theme';
+import { colors } from '../../styles/theme';
 
-// Compact horse summary card with optional selection and inline edit/delete actions.
-const HorseCard = ({ horse, isSelected, onSelect, onEdit, onDelete }) => {
+// Vehicle summary card with selection highlight and edit/delete affordances.
+const VehicleCard = ({ vehicle, isSelected, onSelect, onEdit, onDelete }) => {
   return (
     <View
       style={{
@@ -21,14 +21,14 @@ const HorseCard = ({ horse, isSelected, onSelect, onEdit, onDelete }) => {
         onPress={onSelect}
       >
         <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.primary }}>
-          {horse.name}
+          {vehicle.licensePlate}
         </Text>
         <Text style={{ fontSize: 14, color: '#666', marginTop: 4 }}>
-          {horse.breed}
+          {vehicle.make} {vehicle.model}
         </Text>
-        {horse.age && (
+        {vehicle.capacity && (
           <Text style={{ fontSize: 12, color: '#999', marginTop: 2 }}>
-            Født: {horse.age}
+            Kapacitet: {vehicle.capacity} heste
           </Text>
         )}
       </Pressable>
@@ -74,4 +74,4 @@ const HorseCard = ({ horse, isSelected, onSelect, onEdit, onDelete }) => {
   );
 };
 
-export default HorseCard;
+export default VehicleCard;

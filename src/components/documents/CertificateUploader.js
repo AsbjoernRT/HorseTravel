@@ -3,12 +3,12 @@ import { View, Text, TouchableOpacity, Alert, ActivityIndicator, ScrollView, Pre
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { Upload, Camera, FileText, Image as ImageIcon, Trash2, Download, File, RefreshCw } from 'lucide-react-native';
-import { uploadCertificate, getCertificates, deleteCertificate, updateCertificateMetadata } from '../services/documents/certificateService';
-import { extractCertificateData, validateCertificateData } from '../services/documents/certificateParserService';
-import { syncCertificateToOrganization, syncCertificateToVehicle, validateAuthorization } from '../services/documents/certificateSyncService';
-import { colors } from '../styles/theme';
+import { uploadCertificate, getCertificates, deleteCertificate, updateCertificateMetadata } from '../../services/documents/certificateService';
+import { extractCertificateData, validateCertificateData } from '../../services/documents/certificateParserService';
+import { syncCertificateToOrganization, syncCertificateToVehicle, validateAuthorization } from '../../services/documents/certificateSyncService';
+import { colors } from '../../styles/theme';
 import Toast from 'react-native-toast-message';
-import { confirmAlert } from '../utils/platformAlerts';
+import { confirmAlert } from '../../utils/platformAlerts';
 import CertificateDetailModal from './CertificateDetailModal';
 
 /**
@@ -916,8 +916,11 @@ const CertificateUploader = ({ entityType, entityId, canManage = true, enableAIE
           setShowDetailModal(false);
           setSelectedCertificate(null);
         }}
-        onUpdate={() => {
-          loadCertificates();
+        onUpdate={async () => {
+          await loadCertificates();
+          // Close modal since data was updated
+          setShowDetailModal(false);
+          setSelectedCertificate(null);
         }}
       />
     </View>

@@ -18,10 +18,6 @@ export const fetchVehicleFromRegistry = async (licensePlate) => {
     // Remove spaces and convert to uppercase
     const cleanedPlate = licensePlate.replace(/\s+/g, '').toUpperCase();
 
-    console.log('Fetching vehicle from motorapi.dk:', cleanedPlate);
-    console.log('API URL:', `${MOTOR_API_BASE_URL}/${cleanedPlate}`);
-    console.log('API Key exists:', !!MOTOR_API_KEY);
-
     // Create abort controller for timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
@@ -36,8 +32,6 @@ export const fetchVehicleFromRegistry = async (licensePlate) => {
     });
 
     clearTimeout(timeoutId);
-
-    console.log('Response status:', response.status);
 
     if (!response.ok) {
       if (response.status === 404) {
@@ -54,7 +48,6 @@ export const fetchVehicleFromRegistry = async (licensePlate) => {
     }
 
     const data = await response.json();
-    console.log('Vehicle data received:', data);
 
     // Extract relevant vehicle information
     return {

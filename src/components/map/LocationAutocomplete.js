@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, TextInput, ScrollView, Text, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { MapPin } from 'lucide-react-native';
-import { colors } from '../styles/theme';
-import { loadGoogleMapsAPI } from '../utils/googleMapsLoader';
-import { getPlaceAutocomplete } from '../services/mapsService';
+import { colors } from '../../styles/theme';
+import { loadGoogleMapsAPI } from '../../utils/googleMapsLoader';
+import { getPlaceAutocomplete } from '../../services/mapsService';
 
 // Address input that leverages Google Places autocomplete across web and native platforms.
 const LocationAutocomplete = ({
