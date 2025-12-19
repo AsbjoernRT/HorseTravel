@@ -15,24 +15,32 @@ import { OrganizationProvider, useOrganization } from './src/context/Organizatio
 import { TransportProvider } from './src/context/TransportContext';
 
 // Auth Screens
-import LoginScreen from './src/screens/LoginScreen';
-import SignupScreen from './src/screens/SignupScreen';
-import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
-import PhoneLoginScreen from './src/screens/PhoneLoginScreen';
+import LoginScreen from './src/screens/auth/LoginScreen';
+import SignupScreen from './src/screens/auth/SignupScreen';
+import ForgotPasswordScreen from './src/screens/auth/ForgotPasswordScreen';
+import PhoneLoginScreen from './src/screens/auth/PhoneLoginScreen';
+import ProfileSetupScreen from './src/screens/auth/ProfileSetupScreen';
 
-// Main App Screens
-import HomeScreen from './src/screens/HomeScreen';
-import ProfileSetupScreen from './src/screens/ProfileSetupScreen';
-import ProfileScreen from './src/screens/ProfileScreen';
-import OrganizationSetupScreen from './src/screens/OrganizationSetupScreen';
-import OrganizationDetailsScreen from './src/screens/OrganizationDetailsScreen';
-import VehicleManagementScreen from './src/screens/VehicleManagementScreen';
-import HorseManagementScreen from './src/screens/HorseManagementScreen';
-import TransportListScreen from './src/screens/TransportListScreen';
-import StartTransportScreen from './src/screens/StartTransportScreen';
-import TransportDetailsScreen from './src/screens/TransportDetailsScreen';
-import MenuScreen from './src/screens/MenuScreen';
-import ChatbotScreen from './src/screens/ChatbotScreen';
+// Home Screens
+import HomeScreen from './src/screens/home/HomeScreen';
+import ChatbotScreen from './src/screens/home/ChatbotScreen';
+
+// Profile Screens
+import ProfileScreen from './src/screens/profile/ProfileScreen';
+import MenuScreen from './src/screens/profile/MenuScreen';
+import OrganizationSetupScreen from './src/screens/profile/OrganizationSetupScreen';
+import OrganizationDetailsScreen from './src/screens/profile/OrganizationDetailsScreen';
+
+// Fleet Screens
+import VehicleManagementScreen from './src/screens/fleet/VehicleManagementScreen';
+import HorseManagementScreen from './src/screens/fleet/HorseManagementScreen';
+
+// Planning Screens
+import StartTransportScreen from './src/screens/planning/StartTransportScreen';
+
+// Tracking Screens
+import TransportListScreen from './src/screens/tracking/TransportListScreen';
+import TransportDetailsScreen from './src/screens/tracking/TransportDetailsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
