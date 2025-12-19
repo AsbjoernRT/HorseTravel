@@ -274,7 +274,7 @@ const handleAuthError = (error) => {
     'auth/user-disabled': 'Denne bruger er deaktiveret',
     'auth/user-not-found': 'Ingen bruger fundet med denne email',
     'auth/wrong-password': 'Forkert password',
-    'auth/invalid-credential': 'Ugyldige loginoplysninger',
+    'auth/invalid-credential': 'Forkert email eller adgangskode',
     'auth/too-many-requests': 'For mange forsøg. Prøv igen senere',
     'auth/network-request-failed': 'Netværksfejl. Tjek din internetforbindelse',
     'auth/invalid-phone-number': 'Ugyldigt telefonnummer. Brug format: +4512345678',

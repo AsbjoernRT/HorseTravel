@@ -56,3 +56,5 @@ functions/.env
 
 # Debug/log exports
 data.json
+.claude.md
+claude.md
